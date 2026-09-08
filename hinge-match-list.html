@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Matches</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif;
+    background:#fff;color:#000;
+    max-width:430px;margin:0 auto;min-height:100vh;
+    padding-bottom:78px;
+  }
+
+  /* Header */
+  .title{text-align:center;font-size:27px;font-weight:700;letter-spacing:-.02em;padding:22px 0 16px;}
+  .hr{height:1px;background:#ececec;}
+
+  /* Rows */
+  .row{
+    display:flex;align-items:center;gap:20px;
+    padding:18px 22px;cursor:pointer;
+  }
+  .row:active{background:#fafafa;}
+  .pic{
+    width:96px;height:96px;border-radius:50%;flex:0 0 auto;
+    object-fit:cover;background:#eee;
+  }
+  .info{flex:1;min-width:0;}
+  .nameline{display:flex;align-items:center;gap:9px;margin-bottom:6px;}
+  .name{font-size:25px;font-weight:600;letter-spacing:-.01em;}
+  .heart{width:19px;height:19px;flex:0 0 auto;}
+  .prev{
+    font-size:19px;color:#b5b5b5;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    max-width:100%;
+  }
+  .prev.matched{color:#000;font-weight:600;}
+  .line{height:1px;background:#ececec;margin-left:22px;}
+
+  /* Bottom nav */
+  .nav{
+    position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+    width:100%;max-width:430px;background:#0e0e0e;
+    display:flex;justify-content:space-around;align-items:center;
+    padding:14px 24px 30px;
+  }
+  .nav .item{position:relative;display:flex;align-items:center;justify-content:center;}
+  .nav svg{width:30px;height:30px;}
+  .badge{
+    position:absolute;top:-7px;right:-11px;
+    background:#7A2FB4;color:#fff;font-size:12px;font-weight:700;
+    min-width:19px;height:19px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;padding:0 4px;
+  }
+  .navpic{width:31px;height:31px;border-radius:50%;object-fit:cover;}
+</style>
+</head>
+<body>
+
+  <div class="title">Matches</div>
+  <div class="hr"></div>
+
+  <div id="list"></div>
+
+  <nav class="nav">
+    <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2.2"><path d="M4 5v14M4 12h9M13 5v14"/></svg></div>
+    <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><path d="M12 3l2.5 6H21l-5 4 2 7-6-4-6 4 2-7-5-4h6.5z"/></svg></div>
+    <div class="item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><path d="M20.8 6.6a5 5 0 0 0-8.8-1.6A5 5 0 0 0 3.2 6.6c-1 2.4.4 4.8 2.3 6.6L12 19l6.5-5.8c1.9-1.8 3.3-4.2 2.3-6.6z"/><path d="M8 10l2.5 2.5L15 8" stroke="#888" stroke-width="1.8"/></svg>
+      <span class="badge">8</span>
+    </div>
+    <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><path d="M4 5h16v12H8l-4 4z"/></svg></div>
+    <div class="item"><img class="navpic" src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&h=80&fit=crop&crop=faces" alt=""></div>
+  </nav>
+
+<script>
+  const matches=[
+    {name:"Divya",   heart:true,  prev:"You matched with Divya",              matched:true,  img:"https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop&crop=faces"},
+    {name:"Aubrey",  heart:false, prev:"ummmmmmm how's those eyes are gon",    matched:false, img:"https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=200&h=200&fit=crop&crop=faces"},
+    {name:"Sydney",  heart:false, prev:"someone seems chill af",               matched:false, img:"https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=200&h=200&fit=crop&crop=faces"},
+    {name:"Isadora", heart:false, prev:"You matched with Isadora",             matched:true,  img:"https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&h=200&fit=crop&crop=faces"},
+    {name:"Apshara", heart:true,  prev:"if we lockin rn, we can be arguing at", matched:false, img:"https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200&h=200&fit=crop&crop=faces"},
+    {name:"Brianna", heart:false, prev:"who gave you such good taste ??",       matched:false, img:"https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=200&h=200&fit=crop&crop=faces"},
+    {name:"Mital",   heart:false, prev:"ahh good, i'm gonna be trouble. you still", matched:false, img:"https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=200&h=200&fit=crop&crop=faces"},
+  ];
+
+  const heartSVG=`<svg class="heart" viewBox="0 0 24 24" fill="#5B1A8C"><path d="M12 21s-7.5-4.9-9.7-9.3C.6 8.1 2.3 4.5 5.7 4.5c2 0 3.4 1.2 4.3 2.5.9-1.3 2.3-2.5 4.3-2.5 3.4 0 5.1 3.6 3.4 7.2C19.5 16.1 12 21 12 21z"/></svg>`;
+
+  document.getElementById('list').innerHTML = matches.map((m,i)=>`
+    <div class="row">
+      <img class="pic" src="${m.img}" alt="">
+      <div class="info">
+        <div class="nameline">
+          <span class="name">${m.name}</span>
+          ${m.heart?heartSVG:''}
+        </div>
+        <div class="prev ${m.matched?'matched':''}">${m.prev}</div>
+      </div>
+    </div>
+    ${i<matches.length-1?'<div class="line"></div>':''}
+  `).join('');
+</script>
+</body>
+</html>
