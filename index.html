@@ -1,180 +1,183 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Matches</title>
-<style>
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
-  }
-  
-  html, body {
-    width: 100%;
-    height: 100%;
-    background: #ffffff;
-    overflow-x: hidden;
-  }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Matches</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
 
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
-    color: #000000;
-    max-width: 390px;
-    margin: 0 auto;
-    min-height: 100vh;
-    padding-bottom: 74px;
-    position: relative;
-  }
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      background: #ffffff;
+      overflow-x: hidden;
+    }
 
-  /* Header */
-  .header {
-    text-align: center;
-    padding: 15px 0 13px;
-    background: #ffffff;
-  }
-  
-  .header-title {
-    font-size: 21.5px;
-    font-weight: 700;
-    letter-spacing: -0.015em;
-    color: #000000;
-  }
-  
-  .divider-line {
-    height: 1px;
-    background-color: #f0f0f0;
-    width: 100%;
-  }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+      color: #000000;
+      max-width: 390px;
+      margin: 0 auto;
+      min-height: 100vh;
+      padding-bottom: 74px;
+      position: relative;
+    }
 
-  /* Matches List */
-  .matches-list {
-    display: flex;
-    flex-direction: column;
-  }
+    /* Header */
+    .header {
+      text-align: center;
+      padding: 15px 0 13px;
+      background: #ffffff;
+    }
 
-  .match-row {
-    display: flex;
-    align-items: center;
-    padding: 14px 18px;
-    cursor: pointer;
-    background: #ffffff;
-    height: 91px;
-  }
+    .header-title {
+      font-size: 21.5px;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+      color: #000000;
+    }
 
-  .match-row:active {
-    background: #fafafa;
-  }
+    .divider-line {
+      height: 1px;
+      background-color: #f0f0f0;
+      width: 100%;
+    }
 
-  .avatar {
-    width: 63px;
-    height: 63px;
-    border-radius: 50%;
-    object-fit: cover;
-    flex-shrink: 0;
-    margin-right: 16px;
-    background: #f0f0f0;
-  }
+    /* Matches List */
+    .matches-list {
+      display: flex;
+      flex-direction: column;
+    }
 
-  .match-info {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
+    .match-row {
+      display: flex;
+      align-items: center;
+      padding: 14px 18px;
+      cursor: pointer;
+      background: #ffffff;
+      height: 91px;
+    }
 
-  .name-row {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    margin-bottom: 3px;
-  }
+    .match-row:active {
+      background: #fafafa;
+    }
 
-  .name {
-    font-size: 21px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: #000000;
-    line-height: 1.2;
-  }
+    .avatar {
+      width: 63px;
+      height: 63px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+      margin-right: 16px;
+      background: #f0f0f0;
+    }
 
-  .purple-heart {
-    width: 17px;
-    height: 17px;
-    flex-shrink: 0;
-    margin-left: 0px;
-  }
+    .match-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
 
-  .preview-text {
-    font-size: 16px;
-    color: #8e8e93;
-    letter-spacing: -0.01em;
-    white-space: nowrap;
-    overflow: hidden;
-    line-height: 1.25;
-    font-weight: 400;
-  }
+    .name-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 3px;
+    }
 
-  .preview-text.matched {
-    color: #000000;
-    font-weight: 600;
-  }
+    .name {
+      font-size: 21px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: #000000;
+      line-height: 1.2;
+    }
 
-  /* Bottom Navigation Bar */
-  .bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 100%;
-    max-width: 390px;
-    background: #111111;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 28px 24px;
-    z-index: 100;
-    height: 74px;
-  }
+    .purple-heart {
+      width: 17px;
+      height: 17px;
+      flex-shrink: 0;
+      margin-left: 0px;
+    }
 
-  .nav-item {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    cursor: pointer;
-  }
+    .preview-text {
+      font-size: 16px;
+      color: #8e8e93;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+      overflow: hidden;
+      line-height: 1.25;
+      font-weight: 400;
+    }
 
-  .nav-badge {
-    position: absolute;
-    top: -4px;
-    right: -6px;
-    background: #6A1B9A;
-    color: #ffffff;
-    font-size: 11px;
-    font-weight: 700;
-    width: 17px;
-    height: 17px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1.5px solid #111111;
-  }
+    .preview-text.matched {
+      color: #000000;
+      font-weight: 600;
+    }
 
-  .nav-avatar {
-    width: 27px;
-    height: 27px;
-    border-radius: 50%;
-    object-fit: cover;
-  }
-</style>
+    /* Bottom Navigation Bar */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 390px;
+      background: #111111;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 28px 24px;
+      z-index: 100;
+      height: 74px;
+    }
+
+    .nav-item {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      cursor: pointer;
+    }
+
+    .nav-badge {
+      position: absolute;
+      top: -4px;
+      right: -6px;
+      background: #6A1B9A;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 700;
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1.5px solid #111111;
+    }
+
+    .nav-avatar {
+      width: 27px;
+      height: 27px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+  </style>
 </head>
+
 <body>
 
   <header class="header">
@@ -187,24 +190,45 @@
   <nav class="bottom-nav">
     <!-- Hinge 'H' Icon -->
     <div class="nav-item">
-      <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="square">
-        <line x1="5" y1="4" x2="5" y2="20"></line>
-        <line x1="19" y1="4" x2="19" y2="20"></line>
-        <line x1="5" y1="12" x2="19" y2="12"></line>
+      <svg width="100" height="100" viewBox="0 0 100 100" fill="#888888">
+        <!-- Left Pillar -->
+        <rect x="22" y="20" width="13" height="60" />
+
+        <!-- Right Pillar -->
+        <rect x="56" y="20" width="13" height="60" />
+
+        <!-- Taller horizontal crossbar + matching curved flick -->
+        <path d="
+          M 35, 48.5
+          C 38, 44  40.5, 44  43.5, 44
+          L 69, 44
+          C 74, 44  78.5, 40  83.5, 34
+          L 91, 39.5
+          C 84.5, 48.5  77.5, 57  69, 57
+          L 43.5, 57
+          C 38, 57  35, 63  35, 71
+          Z
+        " />
       </svg>
     </div>
 
     <!-- Star Icon -->
     <div class="nav-item">
-      <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+      <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <polygon
+          points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2">
+        </polygon>
       </svg>
     </div>
 
     <!-- Heart Icon with Badge -->
     <div class="nav-item">
-      <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l8.72-8.72 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+      <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path
+          d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l8.72-8.72 1.06-1.06a5.5 5.5 0 0 0 0-7.78z">
+        </path>
       </svg>
       <span class="nav-badge">9</span>
     </div>
@@ -212,7 +236,7 @@
     <!-- Active Chat Speech Bubble Icon -->
     <div class="nav-item">
       <svg width="25" height="25" viewBox="0 0 24 24" fill="#FFFFFF">
-        <path d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H8l-4 4v-4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>
+        <path d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H8l-4 4v-4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
       </svg>
     </div>
 
@@ -222,68 +246,68 @@
     </div>
   </nav>
 
-<script>
-  const matchesData = [
-    {
-      name: "Divya",
-      hasHeart: true,
-      preview: "You matched with Divya",
-      isMatchedNotice: true,
-      image: "assets/divya.jpg"
-    },
-    {
-      name: "Aubrey",
-      hasHeart: false,
-      preview: "ummmmmmm how's those eyes are gor",
-      isMatchedNotice: false,
-      image: "assets/aubrey.jpg"
-    },
-    {
-      name: "Sydney",
-      hasHeart: false,
-      preview: "someone seems chill af",
-      isMatchedNotice: false,
-      image: "assets/sydney.jpg"
-    },
-    {
-      name: "Isadora",
-      hasHeart: false,
-      preview: "You matched with Isadora",
-      isMatchedNotice: true,
-      image: "assets/isadora.jpg"
-    },
-    {
-      name: "Apshara",
-      hasHeart: true,
-      preview: "if we lockin rn, we can be arguing at the",
-      isMatchedNotice: false,
-      image: "assets/apshara.jpg"
-    },
-    {
-      name: "Brianna",
-      hasHeart: false,
-      preview: "who gave you such good taste ??",
-      isMatchedNotice: false,
-      image: "assets/brianna.jpg"
-    },
-    {
-      name: "Mital",
-      hasHeart: false,
-      preview: "ahh good, i'm gonna be trouble. you still",
-      isMatchedNotice: false,
-      image: "assets/mital.jpg"
-    }
-  ];
+  <script>
+    const matchesData = [
+      {
+        name: "Divya",
+        hasHeart: true,
+        preview: "You matched with Divya",
+        isMatchedNotice: true,
+        image: "assets/divya.jpg"
+      },
+      {
+        name: "Aubrey",
+        hasHeart: false,
+        preview: "ummmmmmm how's those eyes are gor",
+        isMatchedNotice: false,
+        image: "assets/aubrey.jpg"
+      },
+      {
+        name: "Sydney",
+        hasHeart: false,
+        preview: "someone seems chill af",
+        isMatchedNotice: false,
+        image: "assets/sydney.jpg"
+      },
+      {
+        name: "Isadora",
+        hasHeart: false,
+        preview: "You matched with Isadora",
+        isMatchedNotice: true,
+        image: "assets/isadora.jpg"
+      },
+      {
+        name: "Apshara",
+        hasHeart: true,
+        preview: "if we lockin rn, we can be arguing at the",
+        isMatchedNotice: false,
+        image: "assets/apshara.jpg"
+      },
+      {
+        name: "Brianna",
+        hasHeart: false,
+        preview: "who gave you such good taste ??",
+        isMatchedNotice: false,
+        image: "assets/brianna.jpg"
+      },
+      {
+        name: "Mital",
+        hasHeart: false,
+        preview: "ahh good, i'm gonna be trouble. you still",
+        isMatchedNotice: false,
+        image: "assets/mital.jpg"
+      }
+    ];
 
-  const purpleHeartSVG = `
+    const purpleHeartSVG = `
     <svg class="purple-heart" viewBox="0 0 24 24" fill="#5B1A8C">
       <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
     </svg>
   `;
 
-  const container = document.getElementById('matchesList');
+    const container = document.getElementById('matchesList');
 
-  container.innerHTML = matchesData.map((item) => `
+    container.innerHTML = matchesData.map((item) => `
     <div class="match-row">
       <img class="avatar" src="${item.image}" alt="${item.name}">
       <div class="match-info">
@@ -296,7 +320,8 @@
     </div>
     <div class="divider-line"></div>
   `).join('');
-</script>
+  </script>
 
 </body>
+
 </html>
