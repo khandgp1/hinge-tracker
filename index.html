@@ -32,6 +32,14 @@
     }
 
     /* Header */
+    .sticky-header-wrapper {
+      position: sticky;
+      top: 0;
+      background: #ffffff;
+      z-index: 99;
+      width: 100%;
+    }
+
     .header {
       text-align: center;
       padding: 15px 0 13px;
@@ -175,10 +183,12 @@
 
 <body>
 
-  <header class="header">
-    <h1 class="header-title">Matches</h1>
-  </header>
-  <div class="divider-line"></div>
+  <div class="sticky-header-wrapper">
+    <header class="header">
+      <h1 class="header-title">Matches</h1>
+    </header>
+    <div class="divider-line"></div>
+  </div>
 
   <main class="matches-list" id="matchesList"></main>
 
