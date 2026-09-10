@@ -41,14 +41,34 @@ def parse_args():
         help="Disable automatic static header/footer region detection."
     )
     parser.add_argument(
-        "--keep-header-footer", action="store_true", default=True,
-        help="Re-attach top header from 1st frame and bottom footer from last frame around stitched body (default: True)."
+        "--keep-header-footer", action="store_true", default=None,
+        help="Legacy flag: Re-attach both top header and bottom footer around stitched body."
+    )
+    parser.add_argument(
+        "--keep-header", action="store_true", default=False,
+        help="Re-attach top status bar header from 1st frame (default: False)."
+    )
+    parser.add_argument(
+        "--no-header", action="store_false", dest="keep_header",
+        help="Do not re-attach top status bar header (default behavior)."
+    )
+    parser.add_argument(
+        "--keep-footer", action="store_true", default=True,
+        help="Re-attach bottom footer from last frame (default: True)."
+    )
+    parser.add_argument(
+        "--no-footer", action="store_false", dest="keep_footer",
+        help="Do not re-attach bottom footer."
     )
     parser.add_argument(
         "--blend-height", type=int, default=30,
         help="Height of the alpha cross-fade seam blending zone in pixels (default: 30)."
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.keep_header_footer is not None:
+        args.keep_header = args.keep_header_footer
+        args.keep_footer = args.keep_header_footer
+    return args
 
 
 def load_and_sort_images(inputs: Optional[List[str]]) -> List[np.ndarray]:
@@ -186,7 +206,8 @@ def stitch_sequence(
     crop_top: Optional[int] = None,
     crop_bottom: Optional[int] = None,
     auto_crop: bool = True,
-    keep_header_footer: bool = True,
+    keep_header: bool = False,
+    keep_footer: bool = True,
     blend_height: int = 30
 ) -> np.ndarray:
     """Stitch a sequence of images into one continuous stitched image."""
@@ -210,11 +231,10 @@ def stitch_sequence(
             bottom_crops[i + 1] = max(bottom_crops[i + 1], crop_bottom if crop_bottom is not None else b_crop)
 
     # Save header/footer if re-attaching
-    if keep_header_footer:
-        if top_crops[0] > 0:
-            header_strip = images[0][:top_crops[0]].copy()
-        if bottom_crops[-1] > 0:
-            footer_strip = images[-1][-bottom_crops[-1]:].copy()
+    if keep_header and top_crops[0] > 0:
+        header_strip = images[0][:top_crops[0]].copy()
+    if keep_footer and bottom_crops[-1] > 0:
+        footer_strip = images[-1][-bottom_crops[-1]:].copy()
 
     # Crop body contents
     cropped_images = []
@@ -309,7 +329,8 @@ def main():
         crop_top=args.crop_top,
         crop_bottom=args.crop_bottom,
         auto_crop=not args.no_auto_crop,
-        keep_header_footer=args.keep_header_footer,
+        keep_header=args.keep_header,
+        keep_footer=args.keep_footer,
         blend_height=args.blend_height
     )
 
