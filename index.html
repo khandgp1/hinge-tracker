@@ -236,7 +236,7 @@
     .chat-body {
       flex: 1;
       overflow-y: auto;
-      padding: 16px 16px 84px;
+      padding: 16px;
       display: flex;
       flex-direction: column;
       -webkit-overflow-scrolling: touch;
@@ -471,18 +471,7 @@
       <div id="chatFeed"></div>
     </div>
 
-    <!-- Fixed Bottom Input Footer -->
-    <div class="chat-input-bar">
-      <div class="chat-input-pill">
-        <span class="chat-input-placeholder">Send a message</span>
-        <div class="audio-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="#000000">
-            <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z" />
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3" />
-          </svg>
-        </div>
-      </div>
-    </div>
+
   </div>
 
   <nav class="bottom-nav">
@@ -591,10 +580,7 @@
     ];
 
     const aubreyChatData = [
-      {
-        type: "banner",
-        title: "Your Priority Like<br>helped you stand out"
-      },
+
       {
         type: "timestamp",
         text: "Sat, Aug 8 3:23 PM"
