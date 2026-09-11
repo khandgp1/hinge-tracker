@@ -188,7 +188,7 @@
       transform: translateX(-50%);
       width: 100%;
       max-width: 390px;
-      height: 100vh;
+      height: var(--vh-height, 100vh);
       background: #ffffff;
       z-index: 200;
       flex-direction: column;
@@ -469,6 +469,12 @@
     .expert-sheet.half {
       height: 40vh;
       flex-basis: 40vh;
+    }
+
+    .chat-overlay.keyboard-active .expert-sheet.open,
+    .chat-overlay.keyboard-active .expert-sheet.half {
+      height: 45%;
+      flex-basis: 45%;
     }
 
     .expert-sheet.full {
@@ -1144,8 +1150,48 @@
       expertSendBtn.addEventListener('click', sendExpertMessage);
     }
 
+    // Option 2: Mobile Visual Viewport API Sticky Handler
+    function updateVisualViewport() {
+      if (!window.visualViewport) return;
+      const chatOverlay = document.getElementById('chatOverlay');
+      if (!chatOverlay || !chatOverlay.classList.contains('active')) return;
+
+      const vpHeight = window.visualViewport.height;
+      const winHeight = window.innerHeight;
+
+      if (winHeight - vpHeight > 100) {
+        document.documentElement.style.setProperty('--vh-height', `${vpHeight}px`);
+        chatOverlay.classList.add('keyboard-active');
+      } else {
+        document.documentElement.style.setProperty('--vh-height', `${winHeight}px`);
+        chatOverlay.classList.remove('keyboard-active');
+      }
+
+      const chatBody = document.getElementById('chatBody');
+      const expertSheetBody = document.getElementById('expertSheetBody');
+      if (chatBody) chatBody.scrollTop = chatBody.scrollHeight;
+      if (expertSheetBody) expertSheetBody.scrollTop = expertSheetBody.scrollHeight;
+    }
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateVisualViewport);
+      window.visualViewport.addEventListener('scroll', updateVisualViewport);
+    }
+
     if (expertInput) {
       const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+      expertInput.addEventListener('focus', () => {
+        setTimeout(updateVisualViewport, 150);
+      });
+
+      expertInput.addEventListener('blur', () => {
+        setTimeout(() => {
+          document.documentElement.style.setProperty('--vh-height', '100vh');
+          const chatOverlay = document.getElementById('chatOverlay');
+          if (chatOverlay) chatOverlay.classList.remove('keyboard-active');
+        }, 150);
+      });
 
       const autoResize = () => {
         expertInput.style.height = '38px';
