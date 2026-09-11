@@ -240,6 +240,7 @@
       display: flex;
       flex-direction: column;
       -webkit-overflow-scrolling: touch;
+      transition: flex 0.3s ease;
     }
 
     /* Priority Like Banner Card */
@@ -439,36 +440,40 @@
       justify-content: center;
       cursor: pointer;
     }
-    /* Concept A: Floating Bottom Sheet Overlay Styles */
+
+    /* Concept A: Docked Bottom Pane Styles */
     .expert-sheet {
-      position: absolute;
-      bottom: 0;
-      left: 0;
+      position: relative;
       width: 100%;
-      background: rgba(18, 18, 22, 0.92);
+      background: rgba(18, 18, 22, 0.95);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border-top: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 24px 24px 0 0;
-      box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.35);
-      z-index: 300;
+      border-radius: 20px 20px 0 0;
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
+      z-index: 200;
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      transition: height 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: height 0.3s cubic-bezier(0.16, 1, 0.3, 1), flex-basis 0.3s cubic-bezier(0.16, 1, 0.3, 1);
       color: #ffffff;
+      flex-shrink: 0;
     }
 
     .expert-sheet.collapsed {
       height: 56px;
+      flex-basis: 56px;
     }
 
+    .expert-sheet.open,
     .expert-sheet.half {
-      height: 50vh;
+      height: 40vh;
+      flex-basis: 40vh;
     }
 
     .expert-sheet.full {
-      height: 85vh;
+      height: 75vh;
+      flex-basis: 75vh;
     }
 
     .expert-sheet-header {
@@ -566,6 +571,7 @@
       transition: transform 0.35s ease;
     }
 
+    .expert-sheet.open .chevron-icon,
     .expert-sheet.half .chevron-icon {
       transform: rotate(180deg);
     }
@@ -989,18 +995,24 @@
     function toggleExpertSheet() {
       const sheet = document.getElementById('expertBottomSheet');
       const badge = document.getElementById('expertBadge');
+      const chatBody = document.getElementById('chatBody');
       if (!sheet) return;
 
       if (sheetState === 'collapsed') {
-        sheetState = 'half';
-        sheet.className = 'expert-sheet half';
+        sheetState = 'open';
+        sheet.className = 'expert-sheet open';
         if (badge) badge.style.display = 'none';
-      } else if (sheetState === 'half') {
-        sheetState = 'full';
-        sheet.className = 'expert-sheet full';
       } else {
         sheetState = 'collapsed';
         sheet.className = 'expert-sheet collapsed';
+      }
+
+      // Keep recent messages visible in main chat pane during and after height transition
+      if (chatBody) {
+        chatBody.scrollTop = chatBody.scrollHeight;
+        setTimeout(() => {
+          chatBody.scrollTop = chatBody.scrollHeight;
+        }, 300);
       }
     }
 

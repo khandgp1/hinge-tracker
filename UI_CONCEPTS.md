@@ -7,11 +7,11 @@ This document presents design concepts for integrating an **Expert & Client** di
 ## Visual Mockups
 
 ````carousel
-![Concept A: Floating Bottom Sheet Overlay](assets/concept_a_floating_sheet.jpg)
-### Concept A: Floating Bottom Sheet Overlay
-- **Description**: A dark glassmorphism slide-up/collapsible drawer positioned at the bottom of the screen containing the real-time Expert & Client conversation.
-- **Key Advantage**: Leaves the main Aubrey chat layout unchanged in full screen, allowing the coaching stream to be toggled or minimized easily.
-- **Best For**: Real-time coaching overlay and collapsible review sessions.
+![Concept A: Docked Bottom Pane](assets/concept_a_floating_sheet.jpg)
+### Concept A: Docked Bottom Pane
+- **Description**: A collapsible bottom pane that docks below the main chat screen. When expanded (~40% height), the main chat view dynamically resizes and auto-scrolls so recent messages remain fully visible without overlap.
+- **Key Advantage**: Unobscured view of both the active Aubrey chat stream and the real-time Expert & Client dialogue.
+- **Best For**: Simultaneous coaching oversight with zero chat overlap.
 
 <!-- slide -->
 ![Concept B: In-Line Callout Cards](assets/concept_b_inline_callouts.jpg)
@@ -34,7 +34,7 @@ This document presents design concepts for integrating an **Expert & Client** di
 
 | Concept | Layout Style | Key Strengths | Considerations |
 | :--- | :--- | :--- | :--- |
-| **Concept A: Floating Sheet** | Collapsible slide-up drawer overlay | Full-screen Aubrey chat maintained; easy toggle | Partial temporary overlap of bottom chat bubbles |
+| **Concept A: Docked Bottom Pane** | Collapsible docked pane with dynamic viewport resize | Unobscured main chat; smooth flex-height resize; collapsible bar | Main chat height reduces to ~60% when pane is open |
 | **Concept B: In-Line Cards** | Embedded cards inside message stream | Direct visual connection to specific messages | Lengthens vertical scroll area of main chat |
 | **Concept C: Dual Pane** | 50/50 split screen (Top: Aubrey, Bottom: Expert) | Equal weight to both chat streams simultaneously | Reduced vertical viewing area per pane |
 
