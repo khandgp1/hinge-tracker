@@ -188,10 +188,12 @@
       transform: translateX(-50%);
       width: 100%;
       max-width: 390px;
-      height: var(--vh-height, 100vh);
+      height: 100vh;
       background: #ffffff;
       z-index: 200;
       flex-direction: column;
+      box-sizing: border-box;
+      transition: padding-bottom 0.15s ease-out;
     }
 
     .chat-overlay.active {
@@ -471,11 +473,7 @@
       flex-basis: 40vh;
     }
 
-    .chat-overlay.keyboard-active .expert-sheet.open,
-    .chat-overlay.keyboard-active .expert-sheet.half {
-      height: 45%;
-      flex-basis: 45%;
-    }
+
 
     .expert-sheet.full {
       height: 75vh;
@@ -1129,6 +1127,7 @@
           renderAubreyChat();
           renderExpertChat();
           chatOverlay.classList.add('active');
+          document.body.style.overflow = 'hidden';
           if (chatBody) chatBody.scrollTop = 0;
         }
       });
@@ -1136,6 +1135,8 @@
 
     chatBackBtn.addEventListener('click', () => {
       chatOverlay.classList.remove('active');
+      chatOverlay.style.paddingBottom = '0px';
+      document.body.style.overflow = '';
       // Reset sheet state
       sheetState = 'collapsed';
       const sheet = document.getElementById('expertBottomSheet');
@@ -1150,7 +1151,7 @@
       expertSendBtn.addEventListener('click', sendExpertMessage);
     }
 
-    // Option 2: Mobile Visual Viewport API Sticky Handler
+    // Mobile Visual Viewport API Keyboard Padding Handler
     function updateVisualViewport() {
       if (!window.visualViewport) return;
       const chatOverlay = document.getElementById('chatOverlay');
@@ -1158,12 +1159,13 @@
 
       const vpHeight = window.visualViewport.height;
       const winHeight = window.innerHeight;
+      const keyboardHeight = Math.max(0, winHeight - vpHeight);
 
-      if (winHeight - vpHeight > 100) {
-        document.documentElement.style.setProperty('--vh-height', `${vpHeight}px`);
+      if (keyboardHeight > 100) {
+        chatOverlay.style.paddingBottom = `${keyboardHeight}px`;
         chatOverlay.classList.add('keyboard-active');
       } else {
-        document.documentElement.style.setProperty('--vh-height', `${winHeight}px`);
+        chatOverlay.style.paddingBottom = '0px';
         chatOverlay.classList.remove('keyboard-active');
       }
 
@@ -1187,9 +1189,11 @@
 
       expertInput.addEventListener('blur', () => {
         setTimeout(() => {
-          document.documentElement.style.setProperty('--vh-height', '100vh');
           const chatOverlay = document.getElementById('chatOverlay');
-          if (chatOverlay) chatOverlay.classList.remove('keyboard-active');
+          if (chatOverlay) {
+            chatOverlay.style.paddingBottom = '0px';
+            chatOverlay.classList.remove('keyboard-active');
+          }
         }, 150);
       });
 
