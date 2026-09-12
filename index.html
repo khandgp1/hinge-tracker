@@ -473,11 +473,25 @@
       flex-basis: 40vh;
     }
 
-
-
     .expert-sheet.full {
       height: 75vh;
       flex-basis: 75vh;
+    }
+
+    /* Equal 50/50 Split when Keyboard is Active */
+    .chat-overlay.keyboard-active .chat-body {
+      flex: 1 1 0%;
+      min-height: 120px;
+    }
+
+    .chat-overlay.keyboard-active .expert-sheet.open,
+    .chat-overlay.keyboard-active .expert-sheet.half,
+    .chat-overlay.keyboard-active .expert-sheet.full {
+      height: auto;
+      flex: 1 1 0%;
+      flex-basis: 0%;
+      flex-shrink: 1;
+      min-height: 140px;
     }
 
     .expert-sheet-header {
@@ -1173,6 +1187,10 @@
       const expertSheetBody = document.getElementById('expertSheetBody');
       if (chatBody) chatBody.scrollTop = chatBody.scrollHeight;
       if (expertSheetBody) expertSheetBody.scrollTop = expertSheetBody.scrollHeight;
+      setTimeout(() => {
+        if (chatBody) chatBody.scrollTop = chatBody.scrollHeight;
+        if (expertSheetBody) expertSheetBody.scrollTop = expertSheetBody.scrollHeight;
+      }, 300);
     }
 
     if (window.visualViewport) {
