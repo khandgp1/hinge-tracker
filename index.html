@@ -185,7 +185,7 @@
       position: fixed;
       top: 0;
       left: 50%;
-      transform: translateX(-50%);
+      transform: translateX(-50%) translateZ(0);
       width: 100%;
       max-width: 390px;
       height: 100vh;
@@ -193,7 +193,8 @@
       z-index: 200;
       flex-direction: column;
       box-sizing: border-box;
-      transition: padding-bottom 0.15s ease-out;
+      transition: padding-bottom 0.12s cubic-bezier(0.2, 0, 0, 1);
+      will-change: padding-bottom;
     }
 
     .chat-overlay.active {
@@ -1179,18 +1180,23 @@
       expertSendBtn.addEventListener('click', sendExpertMessage);
     }
 
-    // Mobile Visual Viewport API Keyboard Padding Handler
-    function updateVisualViewport() {
+    // Mobile 60fps Synchronous Visual Viewport API Input Accessory Transformer
+    let vpScheduled = false;
+
+    function syncVisualViewport() {
+      vpScheduled = false;
       if (!window.visualViewport) return;
       const chatOverlay = document.getElementById('chatOverlay');
       if (!chatOverlay || !chatOverlay.classList.contains('active')) return;
 
       const vpHeight = window.visualViewport.height;
+      const vpOffsetTop = window.visualViewport.offsetTop || 0;
       const winHeight = window.innerHeight;
-      const keyboardHeight = Math.max(0, winHeight - vpHeight);
+      const keyboardHeight = Math.max(0, winHeight - vpHeight - vpOffsetTop);
 
-      if (keyboardHeight > 100) {
-        chatOverlay.style.paddingBottom = `${keyboardHeight}px`;
+      if (keyboardHeight > 100 || document.activeElement === expertInput) {
+        const offset = Math.max(keyboardHeight, winHeight - vpHeight);
+        chatOverlay.style.paddingBottom = `${offset}px`;
         chatOverlay.classList.add('keyboard-active');
       } else {
         chatOverlay.style.paddingBottom = '0px';
@@ -1201,28 +1207,38 @@
       const expertSheetBody = document.getElementById('expertSheetBody');
       if (chatBody) chatBody.scrollTop = chatBody.scrollHeight;
       if (expertSheetBody) expertSheetBody.scrollTop = expertSheetBody.scrollHeight;
-      setTimeout(() => {
-        if (chatBody) chatBody.scrollTop = chatBody.scrollHeight;
-        if (expertSheetBody) expertSheetBody.scrollTop = expertSheetBody.scrollHeight;
-      }, 300);
+    }
+
+    function updateVisualViewport() {
+      if (!vpScheduled) {
+        vpScheduled = true;
+        requestAnimationFrame(syncVisualViewport);
+      }
     }
 
     if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', updateVisualViewport);
-      window.visualViewport.addEventListener('scroll', updateVisualViewport);
+      window.visualViewport.addEventListener('resize', updateVisualViewport, { passive: true });
+      window.visualViewport.addEventListener('scroll', updateVisualViewport, { passive: true });
     }
 
     if (expertInput) {
       const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
       expertInput.addEventListener('focus', () => {
+        document.body.style.position = 'fixed';
+        document.body.style.width = '100%';
+        updateVisualViewport();
+        setTimeout(updateVisualViewport, 50);
         setTimeout(updateVisualViewport, 150);
+        setTimeout(updateVisualViewport, 300);
       });
 
       expertInput.addEventListener('blur', () => {
+        document.body.style.position = '';
+        document.body.style.width = '';
         setTimeout(() => {
           const chatOverlay = document.getElementById('chatOverlay');
-          if (chatOverlay) {
+          if (chatOverlay && document.activeElement !== expertInput) {
             chatOverlay.style.paddingBottom = '0px';
             chatOverlay.classList.remove('keyboard-active');
           }
