@@ -564,6 +564,10 @@
       min-height: 70px;
     }
 
+    .chat-overlay.keyboard-active .expert-sheet {
+      transition: none;
+    }
+
     .chat-overlay.keyboard-active .expert-sheet-header {
       display: none;
     }
@@ -798,7 +802,7 @@
       border-radius: 19px;
       padding: 8px 14px;
       color: #ffffff;
-      font-size: 13.5px;
+      font-size: 16px;
       font-family: inherit;
       line-height: 1.4;
       outline: none;
@@ -1108,7 +1112,7 @@
         sender: 'expert',
         name: 'Coach Alex',
         text: "Recommendation: Don't text her tonight. Wait until tomorrow morning around 11 AM so you maintain that smooth, relaxed frame.",
-        time: '12:07 AM'
+        time: '12:09 AM'
       }
     ];
 
@@ -1386,13 +1390,19 @@
       const keyboardHeight = Math.max(0, winHeight - vpHeight - vpOffsetTop);
 
       if (keyboardHeight > 100 || document.activeElement === expertInput) {
-        const offset = Math.max(keyboardHeight, winHeight - vpHeight);
-        chatOverlay.style.paddingBottom = `${offset}px`;
         chatOverlay.classList.add('keyboard-active');
-      } else {
+        chatOverlay.style.top = `${vpOffsetTop}px`;
+        chatOverlay.style.height = `${vpHeight}px`;
         chatOverlay.style.paddingBottom = '0px';
+      } else {
         chatOverlay.classList.remove('keyboard-active');
+        chatOverlay.style.top = '0px';
+        chatOverlay.style.height = '';
+        chatOverlay.style.paddingBottom = '0px';
       }
+
+      window.scrollTo(0, 0);
+      chatOverlay.scrollTop = 0;
 
       const chatBody = document.getElementById('chatBody');
       const expertSheetBody = document.getElementById('expertSheetBody');
@@ -1418,6 +1428,7 @@
       expertInput.addEventListener('focus', () => {
         document.body.style.position = 'fixed';
         document.body.style.width = '100%';
+        window.scrollTo(0, 0);
         updateVisualViewport();
         setTimeout(updateVisualViewport, 50);
         setTimeout(updateVisualViewport, 150);
@@ -1430,8 +1441,10 @@
         setTimeout(() => {
           const chatOverlay = document.getElementById('chatOverlay');
           if (chatOverlay && document.activeElement !== expertInput) {
-            chatOverlay.style.paddingBottom = '0px';
             chatOverlay.classList.remove('keyboard-active');
+            chatOverlay.style.top = '0px';
+            chatOverlay.style.height = '';
+            chatOverlay.style.paddingBottom = '0px';
           }
         }, 150);
       });
