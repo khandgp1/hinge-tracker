@@ -702,7 +702,7 @@
 
     .expert-input-field {
       flex: 1;
-      height: 38px;
+      min-height: 38px;
       max-height: 100px;
       background: rgba(255, 255, 255, 0.08);
       border: 1px solid rgba(255, 255, 255, 0.15);
@@ -713,13 +713,18 @@
       font-family: inherit;
       line-height: 1.4;
       outline: none;
-      resize: none;
       box-sizing: border-box;
       overflow-y: auto;
+      word-break: break-word;
+      white-space: pre-wrap;
+      -webkit-user-modify: read-write-plaintext-only;
     }
 
-    .expert-input-field::placeholder {
+    .expert-input-field:empty::before {
+      content: attr(data-placeholder);
       color: rgba(255, 255, 255, 0.4);
+      pointer-events: none;
+      display: block;
     }
 
     .expert-input-field:focus {
@@ -802,7 +807,7 @@
       </div>
 
       <div class="expert-input-bar">
-        <textarea id="expertInput" class="expert-input-field" placeholder="Ask coach for advice..." rows="1" autocomplete="off" autocorrect="off" spellcheck="false" inputmode="text" enterkeyhint="send"></textarea>
+        <div id="expertInput" class="expert-input-field" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Ask coach for advice..."></div>
         <button id="expertSendBtn" class="expert-send-btn" aria-label="Send message">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -1051,7 +1056,9 @@
 
     function sendExpertMessage() {
       const input = document.getElementById('expertInput');
-      if (!input || !input.value.trim()) return;
+      if (!input) return;
+      const text = (input.innerText || input.textContent || '').trim();
+      if (!text) return;
 
       const now = new Date();
       const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -1059,12 +1066,12 @@
       expertDialogueData.push({
         sender: 'client',
         name: 'You (Client)',
-        text: input.value.trim(),
+        text: text,
         time: timeStr
       });
 
-      input.value = '';
-      input.style.height = '38px';
+      input.innerText = '';
+      input.style.height = '';
       renderExpertChat();
 
       // Simulated Coach reply after 1.2s
@@ -1246,9 +1253,9 @@
       });
 
       const autoResize = () => {
-        expertInput.style.height = '38px';
+        expertInput.style.height = 'auto';
         const newHeight = Math.min(expertInput.scrollHeight, 100);
-        expertInput.style.height = newHeight + 'px';
+        expertInput.style.height = Math.max(newHeight, 38) + 'px';
       };
 
       expertInput.addEventListener('input', autoResize);
