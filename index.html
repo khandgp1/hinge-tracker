@@ -272,6 +272,9 @@
     }
 
     .chat-overlay.sheet-open .chat-body {
+      height: 45%;
+      flex: 0 0 45%;
+      box-sizing: border-box;
       padding-top: 52px;
     }
 
@@ -512,8 +515,9 @@
 
     .expert-sheet.open,
     .expert-sheet.half {
-      height: auto;
-      flex: 50 1 0%;
+      height: 55%;
+      flex: 0 0 55%;
+      box-sizing: border-box;
     }
 
     .expert-sheet.full {
@@ -528,6 +532,7 @@
     }
 
     .chat-overlay.keyboard-active .chat-body {
+      height: auto;
       flex: 35 1 0%;
       min-height: 70px;
       padding: 10px 14px;
@@ -1085,7 +1090,7 @@
         sender: 'expert',
         name: 'Coach Alex',
         text: "Recommendation: Don't text her tonight. Wait until tomorrow morning around 11 AM so you maintain that smooth, relaxed frame.",
-        time: '12:05 AM'
+        time: '12:06 AM'
       }
     ];
 
