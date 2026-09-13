@@ -19,6 +19,14 @@
       height: 100%;
       background: #ffffff;
       overflow-x: hidden;
+      overscroll-behavior: none;
+    }
+
+    body.chat-open {
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
     }
 
     body {
@@ -188,11 +196,14 @@
       transform: translateX(-50%) translateZ(0);
       width: 100%;
       max-width: 390px;
-      height: 100vh;
+      height: 100%;
+      height: 100dvh;
       background: #ffffff;
       z-index: 200;
       flex-direction: column;
       box-sizing: border-box;
+      overflow: hidden;
+      overscroll-behavior: none;
       transition: padding-bottom 0.12s cubic-bezier(0.2, 0, 0, 1);
       will-change: padding-bottom;
     }
@@ -289,6 +300,8 @@
       display: flex;
       flex-direction: column;
       -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      overscroll-behavior-y: contain;
     }
 
     /* Priority Like Banner Card */
@@ -503,6 +516,7 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      overscroll-behavior: contain;
       transition: height 0.3s cubic-bezier(0.16, 1, 0.3, 1), flex-basis 0.3s cubic-bezier(0.16, 1, 0.3, 1);
       color: #ffffff;
       flex-shrink: 0;
@@ -691,6 +705,8 @@
       display: flex;
       flex-direction: column;
       -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      overscroll-behavior-y: contain;
     }
 
     .expert-chat-feed {
@@ -1090,7 +1106,7 @@
         sender: 'expert',
         name: 'Coach Alex',
         text: "Recommendation: Don't text her tonight. Wait until tomorrow morning around 11 AM so you maintain that smooth, relaxed frame.",
-        time: '12:06 AM'
+        time: '12:07 AM'
       }
     ];
 
@@ -1242,12 +1258,16 @@
     const expertSendBtn = document.getElementById('expertSendBtn');
     const expertInput = document.getElementById('expertInput');
 
+    let scrollRestoreY = 0;
+
     function closeChat() {
       if (!chatOverlay) return;
       chatOverlay.classList.remove('active');
       chatOverlay.classList.remove('sheet-open');
       chatOverlay.style.paddingBottom = '0px';
-      document.body.style.overflow = '';
+      document.body.classList.remove('chat-open');
+      document.body.style.top = '';
+      window.scrollTo(0, scrollRestoreY);
       // Reset sheet state
       sheetState = 'collapsed';
       const sheet = document.getElementById('expertBottomSheet');
@@ -1258,6 +1278,7 @@
       row.addEventListener('click', () => {
         const name = row.getAttribute('data-name');
         if (name === 'Aubrey') {
+          scrollRestoreY = window.scrollY || document.documentElement.scrollTop || 0;
           renderAubreyChat();
           renderExpertChat();
           sheetState = 'collapsed';
@@ -1265,11 +1286,73 @@
           if (sheet) sheet.className = 'expert-sheet collapsed';
           chatOverlay.classList.remove('sheet-open');
           chatOverlay.classList.add('active');
-          document.body.style.overflow = 'hidden';
+          document.body.classList.add('chat-open');
+          document.body.style.top = `-${scrollRestoreY}px`;
           if (chatBody) chatBody.scrollTop = 0;
         }
       });
     });
+
+    // Touch boundary overscroll guards to prevent white screen and viewport rubber-banding
+    if (chatOverlay) {
+      chatOverlay.addEventListener('touchmove', (e) => {
+        // Prevent drags on overlay chrome outside the scrollable chat bodies
+        if (!e.target.closest('#chatBody, #expertSheetBody, #expertInput')) {
+          e.preventDefault();
+        }
+      }, { passive: false });
+    }
+
+    const expertSheetBody = document.getElementById('expertSheetBody');
+    if (expertSheetBody) {
+      let expertTouchStartY = 0;
+      expertSheetBody.addEventListener('touchstart', (e) => {
+        if (e.touches && e.touches.length > 0) {
+          expertTouchStartY = e.touches[0].clientY;
+        }
+      }, { passive: true });
+
+      expertSheetBody.addEventListener('touchmove', (e) => {
+        if (!e.touches || e.touches.length === 0) return;
+        const currentY = e.touches[0].clientY;
+        const deltaY = currentY - expertTouchStartY;
+        const isAtTop = expertSheetBody.scrollTop <= 0;
+        const isAtBottom = expertSheetBody.scrollTop + expertSheetBody.clientHeight >= expertSheetBody.scrollHeight - 1;
+
+        // Swiping down when at top boundary
+        if (deltaY > 0 && isAtTop) {
+          e.preventDefault();
+        }
+        // Swiping up when at bottom boundary
+        if (deltaY < 0 && isAtBottom) {
+          e.preventDefault();
+        }
+      }, { passive: false });
+    }
+
+    if (chatBody) {
+      let chatTouchStartY = 0;
+      chatBody.addEventListener('touchstart', (e) => {
+        if (e.touches && e.touches.length > 0) {
+          chatTouchStartY = e.touches[0].clientY;
+        }
+      }, { passive: true });
+
+      chatBody.addEventListener('touchmove', (e) => {
+        if (!e.touches || e.touches.length === 0) return;
+        const currentY = e.touches[0].clientY;
+        const deltaY = currentY - chatTouchStartY;
+        const isAtTop = chatBody.scrollTop <= 0;
+        const isAtBottom = chatBody.scrollTop + chatBody.clientHeight >= chatBody.scrollHeight - 1;
+
+        if (deltaY > 0 && isAtTop) {
+          e.preventDefault();
+        }
+        if (deltaY < 0 && isAtBottom) {
+          e.preventDefault();
+        }
+      }, { passive: false });
+    }
 
     if (chatBackBtn) {
       chatBackBtn.addEventListener('click', closeChat);
