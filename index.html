@@ -236,6 +236,49 @@
       width: 32px;
     }
 
+    /* Floating back button & sheet-open space optimizations */
+    .chat-floating-back-btn {
+      display: none;
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      z-index: 250;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+      transition: transform 0.15s ease, background-color 0.15s ease;
+    }
+
+    .chat-floating-back-btn:active {
+      transform: scale(0.92);
+      background: rgba(240, 240, 240, 0.95);
+    }
+
+    .chat-overlay.sheet-open .chat-floating-back-btn {
+      display: flex;
+    }
+
+    .chat-overlay.sheet-open .chat-header {
+      display: none;
+    }
+
+    .chat-overlay.sheet-open .chat-body {
+      padding-top: 52px;
+    }
+
+    .chat-overlay.sheet-open.keyboard-active .chat-body {
+      padding-top: 48px;
+    }
+
     .chat-body {
       flex: 50 1 0%;
       overflow-y: auto;
@@ -528,6 +571,30 @@
       margin-bottom: 6px;
     }
 
+    /* Option 3: Slim down the expert sheet header to just the drag handle when open */
+    .expert-sheet.open .expert-header-content,
+    .expert-sheet.half .expert-header-content,
+    .expert-sheet.full .expert-header-content {
+      display: none;
+    }
+
+    .expert-sheet.open .expert-sheet-header,
+    .expert-sheet.half .expert-sheet-header,
+    .expert-sheet.full .expert-sheet-header {
+      padding: 8px 16px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .expert-sheet.open .expert-drag-handle,
+    .expert-sheet.half .expert-drag-handle,
+    .expert-sheet.full .expert-drag-handle {
+      margin-bottom: 0;
+      width: 44px;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.45);
+    }
+
     .expert-header-content {
       width: 100%;
       display: flex;
@@ -764,6 +831,14 @@
 
   <!-- Fullscreen Chat Overlay -->
   <div id="chatOverlay" class="chat-overlay">
+    <!-- Floating Back Button (visible when headers are hidden in dual-chat mode) -->
+    <button id="chatFloatingBackBtn" class="chat-floating-back-btn" aria-label="Back">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2.5"
+        stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </svg>
+    </button>
+
     <div class="chat-header">
       <button id="chatBackBtn" class="chat-back-btn" aria-label="Back">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2.5"
@@ -1033,15 +1108,18 @@
       const sheet = document.getElementById('expertBottomSheet');
       const badge = document.getElementById('expertBadge');
       const chatBody = document.getElementById('chatBody');
+      const chatOverlay = document.getElementById('chatOverlay');
       if (!sheet) return;
 
       if (sheetState === 'collapsed') {
         sheetState = 'open';
         sheet.className = 'expert-sheet open';
         if (badge) badge.style.display = 'none';
+        if (chatOverlay) chatOverlay.classList.add('sheet-open');
       } else {
         sheetState = 'collapsed';
         sheet.className = 'expert-sheet collapsed';
+        if (chatOverlay) chatOverlay.classList.remove('sheet-open');
       }
 
       // Keep recent messages visible in main chat pane during and after height transition
@@ -1150,10 +1228,23 @@
 
     const chatOverlay = document.getElementById('chatOverlay');
     const chatBackBtn = document.getElementById('chatBackBtn');
+    const chatFloatingBackBtn = document.getElementById('chatFloatingBackBtn');
     const chatBody = document.getElementById('chatBody');
     const expertHeader = document.getElementById('expertSheetHeader');
     const expertSendBtn = document.getElementById('expertSendBtn');
     const expertInput = document.getElementById('expertInput');
+
+    function closeChat() {
+      if (!chatOverlay) return;
+      chatOverlay.classList.remove('active');
+      chatOverlay.classList.remove('sheet-open');
+      chatOverlay.style.paddingBottom = '0px';
+      document.body.style.overflow = '';
+      // Reset sheet state
+      sheetState = 'collapsed';
+      const sheet = document.getElementById('expertBottomSheet');
+      if (sheet) sheet.className = 'expert-sheet collapsed';
+    }
 
     document.querySelectorAll('.match-row').forEach(row => {
       row.addEventListener('click', () => {
@@ -1161,6 +1252,10 @@
         if (name === 'Aubrey') {
           renderAubreyChat();
           renderExpertChat();
+          sheetState = 'collapsed';
+          const sheet = document.getElementById('expertBottomSheet');
+          if (sheet) sheet.className = 'expert-sheet collapsed';
+          chatOverlay.classList.remove('sheet-open');
           chatOverlay.classList.add('active');
           document.body.style.overflow = 'hidden';
           if (chatBody) chatBody.scrollTop = 0;
@@ -1168,15 +1263,12 @@
       });
     });
 
-    chatBackBtn.addEventListener('click', () => {
-      chatOverlay.classList.remove('active');
-      chatOverlay.style.paddingBottom = '0px';
-      document.body.style.overflow = '';
-      // Reset sheet state
-      sheetState = 'collapsed';
-      const sheet = document.getElementById('expertBottomSheet');
-      if (sheet) sheet.className = 'expert-sheet collapsed';
-    });
+    if (chatBackBtn) {
+      chatBackBtn.addEventListener('click', closeChat);
+    }
+    if (chatFloatingBackBtn) {
+      chatFloatingBackBtn.addEventListener('click', closeChat);
+    }
 
     if (expertHeader) {
       expertHeader.addEventListener('click', toggleExpertSheet);
