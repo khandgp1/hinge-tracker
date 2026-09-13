@@ -539,27 +539,29 @@
       flex-basis: 75vh;
     }
 
-    /* Reclaim Space & 35% / 65% Flex Split when Keyboard is Active */
+    /* Reclaim Space & 50% / 50% Flex Split when Keyboard is Active */
     .chat-overlay.keyboard-active .chat-header {
       height: 42px;
       padding: 6px 14px;
     }
 
-    .chat-overlay.keyboard-active .chat-body {
+    .chat-overlay.keyboard-active .chat-body,
+    .chat-overlay.sheet-open.keyboard-active .chat-body {
       height: auto;
-      flex: 35 1 0%;
+      flex: 50 1 0%;
       min-height: 70px;
       padding: 10px 14px;
+      padding-top: 48px;
     }
 
     .chat-overlay.keyboard-active .expert-sheet.open,
     .chat-overlay.keyboard-active .expert-sheet.half,
     .chat-overlay.keyboard-active .expert-sheet.full {
       height: auto;
-      flex: 65 1 0%;
+      flex: 50 1 0%;
       flex-basis: 0%;
       flex-shrink: 1;
-      min-height: 110px;
+      min-height: 70px;
     }
 
     .chat-overlay.keyboard-active .expert-sheet-header {
