@@ -169,9 +169,12 @@ def find_vertical_displacement(
     # Search all vertical scroll shifts dy from 5px up to h_up - min_overlap_px
     max_search_dy = h_up - min_overlap_px
     for dy in range(5, max_search_dy):
-        overlap_upper = gray_upper[dy:h_up, :]
-        overlap_lower = gray_lower[0:h_up - dy, :]
-        if overlap_upper.shape[0] == 0:
+        overlap_h = min(h_up - dy, h_low)
+        if overlap_h < min_overlap_px:
+            continue
+        overlap_upper = gray_upper[dy:dy + overlap_h, :]
+        overlap_lower = gray_lower[0:overlap_h, :]
+        if overlap_upper.shape[0] == 0 or overlap_lower.shape[0] == 0:
             continue
         diff = np.mean(np.abs(overlap_upper.astype(np.float32) - overlap_lower.astype(np.float32)))
         if diff < best_diff:
@@ -216,19 +219,34 @@ def stitch_sequence(
     footer_strip = None
 
     # Detect or apply static cropping
-    top_crops = [0] * n
-    bottom_crops = [0] * n
-
     if not auto_crop:
         top_crops = [crop_top or 0] * n
         bottom_crops = [crop_bottom or 0] * n
     else:
+        detected_tops = []
+        detected_bottoms = []
         for i in range(n - 1):
             t_crop, b_crop = detect_static_margins(images[i], images[i + 1])
-            top_crops[i] = max(top_crops[i], crop_top if crop_top is not None else t_crop)
-            bottom_crops[i] = max(bottom_crops[i], crop_bottom if crop_bottom is not None else b_crop)
-            top_crops[i + 1] = max(top_crops[i + 1], crop_top if crop_top is not None else t_crop)
-            bottom_crops[i + 1] = max(bottom_crops[i + 1], crop_bottom if crop_bottom is not None else b_crop)
+            detected_tops.append(t_crop)
+            detected_bottoms.append(b_crop)
+
+        # Normalize static margins across all frames using the median of positive detections
+        # to reject transient noise (e.g. clock change in status bar or solid white content padding)
+        pos_tops = [t for t in detected_tops if t > 0]
+        pos_bottoms = [b for b in detected_bottoms if b > 0]
+        seq_top = int(np.median(pos_tops)) if pos_tops else 0
+        seq_bottom = int(np.median(pos_bottoms)) if pos_bottoms else 0
+
+        # When a static header is auto-detected, trim 3 extra boundary pixels to cleanly
+        # remove navigation divider lines, active tab underlines, and anti-aliasing edges
+        if crop_top is None and seq_top > 0:
+            seq_top += 3
+
+        final_top = crop_top if crop_top is not None else seq_top
+        final_bottom = crop_bottom if crop_bottom is not None else seq_bottom
+
+        top_crops = [final_top] * n
+        bottom_crops = [final_bottom] * n
 
     # Save header/footer if re-attaching
     if keep_header and top_crops[0] > 0:
@@ -246,13 +264,6 @@ def stitch_sequence(
         body = img[t:h - b] if b > 0 else img[t:]
         cropped_images.append(body)
 
-    # Calculate displacements between adjacent cropped bodies
-    displacements = []
-    for i in range(n - 1):
-        dy, score = find_vertical_displacement(cropped_images[i], cropped_images[i + 1])
-        print(f"Frame {i} -> {i+1}: Vertical displacement Δy = {dy}px (confidence: {score:.3f})")
-        displacements.append(dy)
-
     # Ensure all cropped images match the width of cropped_images[0]
     w = cropped_images[0].shape[1]
     for i in range(n):
@@ -260,6 +271,13 @@ def stitch_sequence(
             scale = w / float(cropped_images[i].shape[1])
             new_h = int(cropped_images[i].shape[0] * scale)
             cropped_images[i] = cv2.resize(cropped_images[i], (w, new_h))
+
+    # Calculate displacements between adjacent cropped bodies
+    displacements = []
+    for i in range(n - 1):
+        dy, score = find_vertical_displacement(cropped_images[i], cropped_images[i + 1])
+        print(f"Frame {i} -> {i+1}: Vertical displacement Δy = {dy}px (confidence: {score:.3f})")
+        displacements.append(dy)
 
     # Calculate absolute Y start positions for each frame
     y_positions = [0] * n
