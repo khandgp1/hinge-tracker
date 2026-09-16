@@ -5,6 +5,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Matches</title>
+
+  <!-- Firebase SDK (compat v9) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <style>
     * {
       margin: 0;
@@ -733,7 +737,8 @@
       max-width: 86%;
     }
 
-    .expert-msg-row.expert {
+    .expert-msg-row.expert,
+    .expert-msg-row.coach {
       align-self: flex-start;
     }
 
@@ -764,14 +769,16 @@
       white-space: pre-wrap;
     }
 
-    .expert-msg-row.expert .expert-bubble {
+    .expert-msg-row.expert .expert-bubble,
+    .expert-bubble.coach-bubble {
       background: rgba(255, 255, 255, 0.1);
       border: 1px solid rgba(255, 255, 255, 0.12);
       color: #f0f0f5;
       border-top-left-radius: 4px;
     }
 
-    .expert-msg-row.client .expert-bubble {
+    .expert-msg-row.client .expert-bubble,
+    .expert-bubble.client-bubble {
       background: linear-gradient(135deg, #7B1FA2, #512DA8);
       color: #ffffff;
       border-top-right-radius: 4px;
@@ -784,9 +791,70 @@
       margin-left: 4px;
     }
 
-    .expert-msg-row.client .expert-time {
+    .expert-msg-row.client .expert-time,
+    .expert-msg-row.client .expert-sender-name {
       text-align: right;
       margin-right: 4px;
+    }
+
+    /* Aubrey context block (coach view only) */
+    .aubrey-context-block {
+      padding: 10px 14px 0;
+      flex-shrink: 0;
+    }
+
+    .aubrey-context-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.38);
+      margin-bottom: 8px;
+    }
+
+    .aubrey-context-feed {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .aubrey-ctx-row {
+      display: flex;
+    }
+
+    .aubrey-ctx-row.sent {
+      justify-content: flex-end;
+    }
+
+    .aubrey-ctx-row.received {
+      justify-content: flex-start;
+    }
+
+    .aubrey-ctx-bubble {
+      padding: 5px 10px;
+      font-size: 12px;
+      line-height: 1.35;
+      border-radius: 12px;
+      max-width: 80%;
+      word-break: break-word;
+    }
+
+    .aubrey-ctx-bubble.sent {
+      background: rgba(123, 31, 162, 0.35);
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .aubrey-ctx-bubble.received {
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .aubrey-context-divider {
+      height: 1px;
+      background: rgba(255, 255, 255, 0.1);
+      margin: 10px 0;
     }
 
     .expert-input-bar {
@@ -1107,38 +1175,94 @@
       }
     ];
 
-    const expertDialogueData = [
-      {
-        sender: 'expert',
-        name: 'Coach Alex',
-        text: "Great play sending her your phone number! Notice how she said 'Eager is my middle name' — she's clearly engaged.",
-        time: '12:03 AM'
-      },
-      {
-        sender: 'expert',
-        name: 'Coach Alex',
-        text: "Recommendation: Don't text her tonight. Wait until tomorrow morning around 11 AM so you maintain that smooth, relaxed frame.",
-        time: '12:11 AM'
-      }
-    ];
+    // ─── Firebase Config ──────────────────────────────────────────────────────
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyBMojXGVQzWFrj7zQ6i28btmljMSj7e6Iw",
+      authDomain: "hinge-tracker-coach.firebaseapp.com",
+      projectId: "hinge-tracker-coach",
+      storageBucket: "hinge-tracker-coach.firebasestorage.app",
+      messagingSenderId: "309539761940",
+      appId: "1:309539761940:web:b26fa680be0379defd9c01"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // ─── Role Detection ───────────────────────────────────────────────────────
+    const urlRole = new URLSearchParams(window.location.search).get('role');
+    const currentRole = urlRole === 'coach' ? 'coach' : 'client';
+    const currentName = currentRole === 'coach' ? 'DA' : 'Me';
+
+    // Update input placeholder based on role
+    const expertInputEl = document.getElementById('expertInput');
+    if (expertInputEl) {
+      expertInputEl.setAttribute('data-placeholder',
+        currentRole === 'coach' ? 'Type advice for client...' : 'Ask your coach...'
+      );
+    }
+
 
     let sheetState = 'collapsed'; // 'collapsed', 'half', 'full'
 
-    function renderExpertChat() {
+    // ─── Aubrey Context Block (coach role only) ─────────────────────────────
+    function renderAubreyContextForCoach() {
+      const sheetBody = document.getElementById('expertSheetBody');
+      if (!sheetBody || currentRole !== 'coach') return;
+      if (document.getElementById('aubreyContextBlock')) return;
+
+      const block = document.createElement('div');
+      block.id = 'aubreyContextBlock';
+      block.className = 'aubrey-context-block';
+      block.innerHTML = `
+        <div class="aubrey-context-label">📱 Aubrey Thread (read-only context)</div>
+        <div class="aubrey-context-feed">
+          ${aubreyChatData.filter(m => m.type === 'sent' || m.type === 'received').map(m => `
+            <div class="aubrey-ctx-row ${m.type}">
+              <div class="aubrey-ctx-bubble ${m.type}">${m.text}</div>
+            </div>
+          `).join('')}
+        </div>
+        <div class="aubrey-context-divider"></div>
+      `;
+      const feed = document.getElementById('expertChatFeed');
+      if (feed) sheetBody.insertBefore(block, feed);
+    }
+
+    // ─── Real-time Firestore Listener ──────────────────────────────────────
+    let coachListenerActive = false;
+    function initCoachListener() {
+      if (coachListenerActive) return;
+      coachListenerActive = true;
       const feed = document.getElementById('expertChatFeed');
       if (!feed) return;
 
-      feed.innerHTML = expertDialogueData.map(item => `
-        <div class="expert-msg-row ${item.sender}">
-          <span class="expert-sender-name">${item.sender === 'expert' ? item.name : 'You (Client)'}</span>
-          <div class="expert-bubble">${item.text}</div>
-          <span class="expert-time">${item.time}</span>
-        </div>
-      `).join('');
+      db.collection('coachDialogue')
+        .orderBy('ts', 'asc')
+        .onSnapshot((snapshot) => {
+          feed.innerHTML = snapshot.docs.map(doc => {
+            const d = doc.data();
+            const senderClass = d.sender === 'coach' ? 'coach' : 'client';
+            const label = d.sender === 'coach' ? 'DA' : 'Me';
+            const timeStr = d.ts
+              ? new Date(d.ts.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              : '';
+            return `
+              <div class="expert-msg-row ${senderClass}">
+                <span class="expert-sender-name">${label}</span>
+                <div class="expert-bubble ${senderClass}-bubble">${d.text}</div>
+                <span class="expert-time">${timeStr}</span>
+              </div>
+            `;
+          }).join('');
 
-      const body = document.getElementById('expertSheetBody');
-      if (body) body.scrollTop = body.scrollHeight;
+          const body = document.getElementById('expertSheetBody');
+          if (body) body.scrollTop = body.scrollHeight;
+        }, (err) => {
+          console.error('Firestore onSnapshot error:', err);
+        });
     }
+
 
     function toggleExpertSheet() {
       const sheet = document.getElementById('expertBottomSheet');
@@ -1173,30 +1297,16 @@
       const text = (input.innerText || input.textContent || '').trim();
       if (!text) return;
 
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-      expertDialogueData.push({
-        sender: 'client',
-        name: 'You (Client)',
+      // Write to Firestore — onSnapshot will update both devices
+      db.collection('coachDialogue').add({
+        sender: currentRole,
+        name: currentName,
         text: text,
-        time: timeStr
-      });
+        ts: firebase.firestore.FieldValue.serverTimestamp()
+      }).catch(err => console.error('Send error:', err));
 
       input.innerText = '';
       input.style.height = '';
-      renderExpertChat();
-
-      // Simulated Coach reply after 1.2s
-      setTimeout(() => {
-        expertDialogueData.push({
-          sender: 'expert',
-          name: 'Coach Alex',
-          text: "Got it! I've noted that for tomorrow's follow-up strategy.",
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        });
-        renderExpertChat();
-      }, 1200);
     }
 
     function renderAubreyChat() {
@@ -1292,7 +1402,10 @@
         if (name === 'Aubrey') {
           scrollRestoreY = window.scrollY || document.documentElement.scrollTop || 0;
           renderAubreyChat();
-          renderExpertChat();
+          // Init Firestore listener (idempotent — only fires once)
+          initCoachListener();
+          // Inject Aubrey context block for coach role
+          if (currentRole === 'coach') renderAubreyContextForCoach();
           sheetState = 'collapsed';
           const sheet = document.getElementById('expertBottomSheet');
           if (sheet) sheet.className = 'expert-sheet collapsed';
