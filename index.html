@@ -797,65 +797,7 @@
       margin-right: 4px;
     }
 
-    /* Aubrey context block (coach view only) */
-    .aubrey-context-block {
-      padding: 10px 14px 0;
-      flex-shrink: 0;
-    }
 
-    .aubrey-context-label {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: rgba(255, 255, 255, 0.38);
-      margin-bottom: 8px;
-    }
-
-    .aubrey-context-feed {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      max-height: 120px;
-      overflow-y: auto;
-    }
-
-    .aubrey-ctx-row {
-      display: flex;
-    }
-
-    .aubrey-ctx-row.sent {
-      justify-content: flex-end;
-    }
-
-    .aubrey-ctx-row.received {
-      justify-content: flex-start;
-    }
-
-    .aubrey-ctx-bubble {
-      padding: 5px 10px;
-      font-size: 12px;
-      line-height: 1.35;
-      border-radius: 12px;
-      max-width: 80%;
-      word-break: break-word;
-    }
-
-    .aubrey-ctx-bubble.sent {
-      background: rgba(123, 31, 162, 0.35);
-      color: rgba(255, 255, 255, 0.7);
-    }
-
-    .aubrey-ctx-bubble.received {
-      background: rgba(255, 255, 255, 0.08);
-      color: rgba(255, 255, 255, 0.6);
-    }
-
-    .aubrey-context-divider {
-      height: 1px;
-      background: rgba(255, 255, 255, 0.1);
-      margin: 10px 0;
-    }
 
     .expert-input-bar {
       padding: 10px 14px 14px;
@@ -1205,29 +1147,7 @@
 
     let sheetState = 'collapsed'; // 'collapsed', 'half', 'full'
 
-    // ─── Aubrey Context Block (coach role only) ─────────────────────────────
-    function renderAubreyContextForCoach() {
-      const sheetBody = document.getElementById('expertSheetBody');
-      if (!sheetBody || currentRole !== 'coach') return;
-      if (document.getElementById('aubreyContextBlock')) return;
 
-      const block = document.createElement('div');
-      block.id = 'aubreyContextBlock';
-      block.className = 'aubrey-context-block';
-      block.innerHTML = `
-        <div class="aubrey-context-label">📱 Aubrey Thread (read-only context)</div>
-        <div class="aubrey-context-feed">
-          ${aubreyChatData.filter(m => m.type === 'sent' || m.type === 'received').map(m => `
-            <div class="aubrey-ctx-row ${m.type}">
-              <div class="aubrey-ctx-bubble ${m.type}">${m.text}</div>
-            </div>
-          `).join('')}
-        </div>
-        <div class="aubrey-context-divider"></div>
-      `;
-      const feed = document.getElementById('expertChatFeed');
-      if (feed) sheetBody.insertBefore(block, feed);
-    }
 
     // ─── Real-time Firestore Listener ──────────────────────────────────────
     let coachListenerActive = false;
@@ -1404,8 +1324,6 @@
           renderAubreyChat();
           // Init Firestore listener (idempotent — only fires once)
           initCoachListener();
-          // Inject Aubrey context block for coach role
-          if (currentRole === 'coach') renderAubreyContextForCoach();
           sheetState = 'collapsed';
           const sheet = document.getElementById('expertBottomSheet');
           if (sheet) sheet.className = 'expert-sheet collapsed';

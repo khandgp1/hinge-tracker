@@ -18,13 +18,13 @@ required beyond the Firebase JS SDK.
 | Message alignment | Coach (DA) always **left**, Client always **right** |
 | Typing indicator | None |
 | UI placement | Keep existing bottom-sheet drawer inside Aubrey chat view |
-| Aubrey context for DA | DA sees Aubrey chat thread (read-only) above the dialogue |
+| Aubrey context for DA | Removed (redundant — Aubrey chat is directly behind the sheet) |
 
 ---
 
 ## Manual Steps Required From You
 
-> **PAUSE POINT 1 — Create Firebase project**
+> **PAUSE POINT 1 — Create Firebase project** [DONE]
 > 1. Go to https://console.firebase.google.com
 > 2. Click **Add project** -> name it `hinge-tracker-coach` (or similar)
 > 3. Disable Google Analytics (not needed)
@@ -32,16 +32,15 @@ required beyond the Firebase JS SDK.
 > 5. Register app name `hinge-coach`, skip Firebase Hosting
 > 6. Copy the **firebaseConfig** object shown — you'll paste it in Step 3
 
-> **PAUSE POINT 2 — Enable Firestore**
-> 1. In the Firebase console sidebar -> **Build -> Firestore Database**
+> **PAUSE POINT 2 — Enable Firestore** [DONE]
+> 1. In the Firebase console sidebar -> **Databases & Storage -> Firestore**
 > 2. Click **Create database**
 > 3. Choose **Start in test mode** (we can lock it down later)
 > 4. Pick any region (us-east1 is fine)
 > 5. Confirm — Firestore is now live
 
-> **PAUSE POINT 3 — Paste firebaseConfig into index.html**
-> After I add the placeholder block in `index.html`, you paste your copied
-> `firebaseConfig` object into that block, then commit and push to GitLab.
+> **PAUSE POINT 3 — Paste firebaseConfig into index.html** [DONE]
+> You pasted your copied `firebaseConfig` object into `index.html`.
 
 ---
 
@@ -51,7 +50,7 @@ required beyond the Firebase JS SDK.
 
 **Phase A — Firebase setup:**
 - Add Firebase JS SDK v9 compat CDN scripts (`app`, `firestore`) in `<head>`
-- Add `firebaseConfig` placeholder block + init code (you fill in at PAUSE POINT 3)
+- Add `firebaseConfig` block + init code
 
 **Phase B — Role detection:**
 - On page load: `new URLSearchParams(window.location.search).get('role')`
@@ -77,14 +76,9 @@ Fields per doc:
 - `sendExpertMessage()` calls `addDoc` to write to Firestore
 - Remove the simulated auto-reply `setTimeout` entirely
 
-**Phase F — DA coach view: Aubrey context:**
-- If `role === 'coach'`, render the Aubrey chat thread (read-only, condensed)
-  above the coach dialogue feed inside the bottom sheet, with a subtle divider
-  labeled "Aubrey Thread (context)"
-
-**Phase G — Visual identity:**
-- Coach (DA) bubbles: left-aligned, warm amber/gold color
-- Client bubbles: right-aligned, existing style
+**Phase F — Visual identity:**
+- Coach (DA) bubbles: left-aligned, distinct style
+- Client bubbles: right-aligned, gradient purple style
 - Sender label above each bubble: `DA` or `Me`
 - Input placeholder:
   - Coach: `"Type advice for client..."`
@@ -95,24 +89,24 @@ Fields per doc:
 ## Checklist
 
 ### Manual (You)
-- [ ] Create Firebase project in console (PAUSE POINT 1)
-- [ ] Enable Firestore in test mode (PAUSE POINT 2)
-- [ ] Copy firebaseConfig object
-- [ ] Paste firebaseConfig into index.html placeholder (PAUSE POINT 3)
-- [ ] Push to GitLab Pages
-- [ ] Share DA's URL: `[your-gitlab-pages-url]?role=coach`
+- [x] Create Firebase project in console (PAUSE POINT 1)
+- [x] Enable Firestore in test mode (PAUSE POINT 2)
+- [x] Copy firebaseConfig object
+- [x] Paste firebaseConfig into index.html placeholder (PAUSE POINT 3)
+- [x] Push to remote
+- [ ] Share DA's URL: `[your-pages-url]?role=coach`
 
 ### Code (AI)
-- [ ] Add Firebase SDK CDN tags to `<head>`
-- [ ] Add firebaseConfig placeholder block + Firebase init
-- [ ] Add role detection logic on page load
-- [ ] Replace `expertDialogueData` array + static render with Firestore `onSnapshot`
-- [ ] Update `sendExpertMessage()` to use `addDoc`
-- [ ] Remove simulated auto-reply `setTimeout`
-- [ ] Add Aubrey context block (read-only) for coach role
-- [ ] Update bubble alignment + colors for coach vs client roles
-- [ ] Update input placeholder text based on role
-- [ ] Update sender labels (`DA` / `Me`)
+- [x] Add Firebase SDK CDN tags to `<head>`
+- [x] Add firebaseConfig block + Firebase init
+- [x] Add role detection logic on page load
+- [x] Replace `expertDialogueData` array + static render with Firestore `onSnapshot`
+- [x] Update `sendExpertMessage()` to use `addDoc`
+- [x] Remove simulated auto-reply `setTimeout`
+- [x] Remove redundant Aubrey context block from coach drawer
+- [x] Update bubble alignment + colors for coach vs client roles
+- [x] Update input placeholder text based on role
+- [x] Update sender labels (`DA` / `Me`)
 
 ---
 
