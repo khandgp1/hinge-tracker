@@ -35,6 +35,7 @@
 
     body.chat-open .matches-list,
     body.chat-open .sticky-header-wrapper,
+    body.chat-open .tab-view,
     body.chat-open .bottom-nav {
       display: none !important;
     }
@@ -190,11 +191,47 @@
       border: 1.5px solid #111111;
     }
 
+    .tab-view {
+      width: 100%;
+    }
+
+    .profile-view {
+      display: none;
+      width: 100%;
+      background: #ffffff;
+    }
+
+    .profile-header-wrapper {
+      position: static;
+      background: #ffffff;
+      width: 100%;
+    }
+
+    .profile-content {
+      width: 100%;
+      background: #ffffff;
+    }
+
+    .profile-image {
+      width: 100%;
+      height: auto;
+      display: block;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
     .nav-avatar {
       width: 32px;
       height: 32px;
       border-radius: 50%;
       object-fit: cover;
+      border: 2px solid transparent;
+      box-sizing: border-box;
+      transition: border-color 0.15s ease;
+    }
+
+    .nav-avatar.active {
+      border: 2px solid #ffffff;
     }
 
     /* Chat Overlay View */
@@ -863,14 +900,31 @@
 
 <body>
 
-  <div class="sticky-header-wrapper">
-    <header class="header">
-      <h1 class="header-title">Matches</h1>
-    </header>
-    <div class="divider-line"></div>
+  <!-- Matches Tab View -->
+  <div id="matchesView" class="tab-view">
+    <div class="sticky-header-wrapper">
+      <header class="header">
+        <h1 class="header-title">Matches</h1>
+      </header>
+      <div class="divider-line"></div>
+    </div>
+
+    <main class="matches-list" id="matchesList"></main>
   </div>
 
-  <main class="matches-list" id="matchesList"></main>
+  <!-- Profile Tab View -->
+  <div id="profileView" class="tab-view profile-view" style="display: none;">
+    <div class="profile-header-wrapper">
+      <header class="header">
+        <h1 class="header-title">Profile</h1>
+      </header>
+      <div class="divider-line"></div>
+    </div>
+
+    <div class="profile-content">
+      <img src="profile_01.png" alt="Profile" class="profile-image" id="profileImage">
+    </div>
+  </div>
 
   <!-- Fullscreen Chat Overlay -->
   <div id="chatOverlay" class="chat-overlay">
@@ -986,15 +1040,15 @@
     </div>
 
     <!-- Active Chat Speech Bubble Icon -->
-    <div class="nav-item">
-      <svg width="25" height="25" viewBox="0 0 24 24" fill="#FFFFFF">
+    <div class="nav-item" id="navChatBtn" role="button" aria-label="Matches">
+      <svg id="navChatIcon" width="25" height="25" viewBox="0 0 24 24" fill="#FFFFFF">
         <path d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H8l-4 4v-4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
       </svg>
     </div>
 
     <!-- Profile Icon -->
-    <div class="nav-item">
-      <img src="assets/nav_profile.png" alt="Profile" class="nav-avatar">
+    <div class="nav-item" id="navProfileBtn" role="button" aria-label="Profile">
+      <img src="assets/nav_profile.png" alt="Profile" class="nav-avatar" id="navAvatar">
     </div>
   </nav>
 
@@ -1321,6 +1375,7 @@
         const name = row.getAttribute('data-name');
         if (name === 'Aubrey') {
           scrollRestoreY = window.scrollY || document.documentElement.scrollTop || 0;
+          tabScrollPositions.matches = scrollRestoreY;
           renderAubreyChat();
           // Init Firestore listener (idempotent — only fires once)
           initCoachListener();
@@ -1410,6 +1465,55 @@
 
     if (expertSendBtn) {
       expertSendBtn.addEventListener('click', sendExpertMessage);
+    }
+
+    // ─── Tab Navigation (Matches & Profile) ─────────────────────────────────
+    let currentTab = 'matches';
+    const tabScrollPositions = {
+      matches: 0,
+      profile: 0
+    };
+
+    function switchTab(tab) {
+      if (currentTab === tab) return;
+
+      // Save scroll position of outgoing tab
+      tabScrollPositions[currentTab] = window.scrollY || document.documentElement.scrollTop || 0;
+
+      const matchesView = document.getElementById('matchesView');
+      const profileView = document.getElementById('profileView');
+      const navChatIcon = document.getElementById('navChatIcon');
+      const navAvatar = document.getElementById('navAvatar');
+
+      if (tab === 'profile') {
+        currentTab = 'profile';
+        if (matchesView) matchesView.style.display = 'none';
+        if (profileView) profileView.style.display = 'block';
+
+        if (navChatIcon) navChatIcon.setAttribute('fill', '#888888');
+        if (navAvatar) navAvatar.classList.add('active');
+
+        window.scrollTo(0, tabScrollPositions.profile || 0);
+      } else if (tab === 'matches') {
+        currentTab = 'matches';
+        if (profileView) profileView.style.display = 'none';
+        if (matchesView) matchesView.style.display = 'block';
+
+        if (navChatIcon) navChatIcon.setAttribute('fill', '#FFFFFF');
+        if (navAvatar) navAvatar.classList.remove('active');
+
+        window.scrollTo(0, tabScrollPositions.matches || 0);
+      }
+    }
+
+    const navChatBtn = document.getElementById('navChatBtn');
+    const navProfileBtn = document.getElementById('navProfileBtn');
+
+    if (navChatBtn) {
+      navChatBtn.addEventListener('click', () => switchTab('matches'));
+    }
+    if (navProfileBtn) {
+      navProfileBtn.addEventListener('click', () => switchTab('profile'));
     }
 
     // Mobile 60fps Synchronous Visual Viewport API Input Accessory Transformer
