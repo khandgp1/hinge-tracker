@@ -9,6 +9,8 @@
   <!-- Firebase SDK (compat v9) -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <!-- Tesseract.js for OCR name recognition -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     * {
       margin: 0;
@@ -60,9 +62,13 @@
     }
 
     .header {
+      position: relative;
       text-align: center;
-      padding: 15px 0 13px;
+      padding: 15px 18px 13px;
       background: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .header-title {
@@ -70,6 +76,28 @@
       font-weight: 700;
       letter-spacing: -0.015em;
       color: #000000;
+    }
+
+    .header-action-btn {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s ease, transform 0.1s ease;
+      color: #000000;
+    }
+
+    .header-action-btn:active {
+      background: #f0f0f0;
+      transform: translateY(-50%) scale(0.92);
     }
 
     .divider-line {
@@ -895,6 +923,275 @@
     .expert-send-btn:active {
       transform: scale(0.95);
     }
+
+    /* ─── Import Review Modal & Sheet ───────────────────────────────── */
+    .import-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.48);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      z-index: 1000;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .import-modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .import-modal-sheet {
+      background: #ffffff;
+      width: 100%;
+      max-width: 390px;
+      max-height: 85vh;
+      border-top-left-radius: 22px;
+      border-top-right-radius: 22px;
+      box-shadow: 0 -8px 36px rgba(0, 0, 0, 0.22);
+      display: flex;
+      flex-direction: column;
+      transform: translateY(100%);
+      transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow: hidden;
+    }
+
+    .import-modal-overlay.active .import-modal-sheet {
+      transform: translateY(0);
+    }
+
+    .import-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 18px;
+      position: relative;
+    }
+
+    .import-cancel-btn {
+      background: none;
+      border: none;
+      font-size: 16px;
+      color: #007aff;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 0;
+      font-family: inherit;
+    }
+
+    .import-cancel-btn:active {
+      opacity: 0.6;
+    }
+
+    .import-modal-title {
+      font-size: 17px;
+      font-weight: 600;
+      color: #000000;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .import-loading-state {
+      padding: 50px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .import-spinner {
+      width: 38px;
+      height: 38px;
+      border: 3.5px solid #eaeaea;
+      border-top-color: #111111;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 16px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .import-loading-title {
+      font-size: 17px;
+      font-weight: 600;
+      color: #111111;
+      margin-bottom: 6px;
+    }
+
+    .import-loading-subtitle {
+      font-size: 14px;
+      color: #888888;
+    }
+
+    .import-content-state {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .import-scrollable-body {
+      overflow-y: auto;
+      max-height: calc(85vh - 140px);
+      padding: 12px 18px 20px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .import-section-title {
+      font-size: 12.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #8e8e93;
+      margin: 16px 0 10px;
+    }
+
+    .import-section-title:first-child {
+      margin-top: 4px;
+    }
+
+    .import-match-card {
+      display: flex;
+      align-items: center;
+      padding: 10px 14px;
+      border-radius: 14px;
+      background: #f8f8f8;
+      margin-bottom: 8px;
+      transition: background 0.15s ease, transform 0.1s ease;
+      cursor: pointer;
+      user-select: none;
+      border: 1px solid #f0f0f0;
+    }
+
+    .import-match-card:active:not(.disabled) {
+      background: #f0f0f0;
+      transform: scale(0.99);
+    }
+
+    .import-match-card.disabled {
+      opacity: 0.58;
+      cursor: default;
+      background: #f5f5f5;
+    }
+
+    .import-card-avatar {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin-right: 14px;
+      flex-shrink: 0;
+      background: #e5e5ea;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .import-card-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .import-card-name-input {
+      font-size: 17px;
+      font-weight: 600;
+      color: #000000;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: transparent;
+      padding: 2px 4px;
+      outline: none;
+      font-family: inherit;
+      width: fit-content;
+      max-width: 180px;
+    }
+
+    .import-card-name-input:focus {
+      background: #ffffff;
+      border-color: #007aff;
+    }
+
+    .import-card-badge {
+      font-size: 11px;
+      font-weight: 600;
+      color: #71717a;
+      background: #e4e4e7;
+      padding: 2px 7px;
+      border-radius: 6px;
+      align-self: flex-start;
+      margin-top: 3px;
+    }
+
+    .import-checkbox-custom {
+      width: 22px;
+      height: 22px;
+      border-radius: 7px;
+      border: 2px solid #c7c7cc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: 12px;
+      flex-shrink: 0;
+      transition: all 0.16s ease;
+      background: #ffffff;
+    }
+
+    .import-match-card.checked .import-checkbox-custom {
+      background: #111111;
+      border-color: #111111;
+    }
+
+    .import-checkbox-custom svg {
+      opacity: 0;
+      transform: scale(0.5);
+      transition: all 0.16s ease;
+    }
+
+    .import-match-card.checked .import-checkbox-custom svg {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .import-modal-footer {
+      padding: 14px 18px 24px;
+      background: #ffffff;
+      border-top: 1px solid #f0f0f0;
+    }
+
+    .import-confirm-btn {
+      width: 100%;
+      height: 50px;
+      background: #111111;
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s, background 0.15s;
+      font-family: inherit;
+    }
+
+    .import-confirm-btn:active:not(:disabled) {
+      transform: scale(0.98);
+      background: #000000;
+    }
+
+    .import-confirm-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 
@@ -905,7 +1202,14 @@
     <div class="sticky-header-wrapper">
       <header class="header">
         <h1 class="header-title">Matches</h1>
+        <button id="importMatchesBtn" class="header-action-btn" aria-label="Import Matches" title="Import from Screenshot">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        </button>
       </header>
+      <input type="file" id="matchesFileInput" accept="image/*" style="display:none">
       <div class="divider-line"></div>
     </div>
 
@@ -923,6 +1227,33 @@
 
     <div class="profile-content">
       <img src="profile_01.png" alt="Profile" class="profile-image" id="profileImage">
+    </div>
+  </div>
+
+  <!-- Import Review Modal -->
+  <div id="importReviewModal" class="import-modal-overlay">
+    <div class="import-modal-sheet">
+      <div class="import-modal-header">
+        <button id="importCancelBtn" class="import-cancel-btn">Cancel</button>
+        <h2 class="import-modal-title">Import Matches</h2>
+        <div style="width: 50px;"></div>
+      </div>
+      <div class="divider-line"></div>
+
+      <!-- Loading / Processing View -->
+      <div id="importLoadingState" class="import-loading-state" style="display: none;">
+        <div class="import-spinner"></div>
+        <div class="import-loading-title">Analyzing Screenshot...</div>
+        <div class="import-loading-subtitle" id="importLoadingSubtitle">Detecting match rows & avatars</div>
+      </div>
+
+      <!-- Match Checklist Review View -->
+      <div id="importContentState" class="import-content-state" style="display: none;">
+        <div class="import-scrollable-body" id="importReviewList"></div>
+        <div class="import-modal-footer">
+          <button id="importConfirmBtn" class="import-confirm-btn" disabled>Import Matches</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1053,50 +1384,70 @@
   </nav>
 
   <script>
-    const matchesData = [
+    const defaultMatchesData = [
       {
         name: "Divya",
         preview: "You matched with Divya",
         isMatchedNotice: true,
-        image: "assets/divya.jpg"
+        image: "assets/divya.jpg",
+        hash: "1111111111100011111000000000100110000000100000001000001011111011"
       },
       {
         name: "Aubrey",
         preview: "ummmmmmm how's those eyes are gor",
         isMatchedNotice: false,
-        image: "assets/aubrey.jpg"
+        image: "assets/aubrey.jpg",
+        hash: "1111111111111111100011111000100110011101100000011000000111000011"
       },
       {
         name: "Sydney",
         preview: "someone seems chill af",
         isMatchedNotice: false,
-        image: "assets/sydney.jpg"
+        image: "assets/sydney.jpg",
+        hash: "1111111111011111100000001000000000000000100000001100000111100011"
       },
       {
         name: "Isadora",
         preview: "You matched with Isadora",
         isMatchedNotice: true,
-        image: "assets/isadora.jpg"
+        image: "assets/isadora.jpg",
+        hash: "1100000110000000110000001100000111011111100111001001100111111111"
       },
       {
         name: "Apshara",
         preview: "if we lockin rn, we can be arguing at the",
         isMatchedNotice: false,
-        image: "assets/apshara.jpg"
+        image: "assets/apshara.jpg",
+        hash: "1101111110000111100001111000011110000111100001111000001111100011"
       },
       {
         name: "Brianna",
         preview: "who gave you such good taste ??",
         isMatchedNotice: false,
-        image: "assets/brianna.jpg"
+        image: "assets/brianna.jpg",
+        hash: "1100001110000110100000001001110100000101100000111000001111110111"
       },
       {
         name: "Mital",
         preview: "ahh good, i'm gonna be trouble. you still",
         isMatchedNotice: false,
-        image: "assets/mital.jpg"
+        image: "assets/mital.jpg",
+        hash: "1100000110000000100110000001100010010000101100001110000111111111"
       }
     ];
+
+    function loadSavedMatches() {
+      try {
+        const saved = localStorage.getItem('hinge_custom_matches');
+        return saved ? JSON.parse(saved) : [];
+      } catch (e) {
+        console.warn('Failed to load custom matches:', e);
+        return [];
+      }
+    }
+
+    let customMatches = loadSavedMatches();
+    let matchesData = [...customMatches, ...defaultMatchesData];
 
     const aubreyChatData = [
 
@@ -1331,20 +1682,123 @@
       }).join('');
     }
 
-    const container = document.getElementById('matchesList');
+    // ─── Deduplication & Avatar Hashing Utilities ────────────────────────
+    function getAvatarHash(canvas, x, y, size) {
+      const thumb = document.createElement('canvas');
+      thumb.width = 8;
+      thumb.height = 8;
+      const ctx = thumb.getContext('2d');
+      ctx.drawImage(canvas, x, y, size, size, 0, 0, 8, 8);
+      const imgData = ctx.getImageData(0, 0, 8, 8).data;
+      let total = 0;
+      const grays = [];
+      for (let i = 0; i < imgData.length; i += 4) {
+        const gray = 0.299 * imgData[i] + 0.587 * imgData[i + 1] + 0.114 * imgData[i + 2];
+        grays.push(gray);
+        total += gray;
+      }
+      const avg = total / 64;
+      let hash = '';
+      for (let i = 0; i < grays.length; i++) {
+        hash += (grays[i] >= avg ? '1' : '0');
+      }
+      return hash;
+    }
 
-    container.innerHTML = matchesData.map((item) => `
-    <div class="match-row" data-name="${item.name}">
-      <img class="avatar" src="${item.image}" alt="${item.name}">
-      <div class="match-info">
-        <div class="name-row">
-          <span class="name">${item.name}</span>
+    function hammingDistance(h1, h2) {
+      if (!h1 || !h2 || h1.length !== h2.length) return 64;
+      let dist = 0;
+      for (let i = 0; i < h1.length; i++) {
+        if (h1[i] !== h2[i]) dist++;
+      }
+      return dist;
+    }
+
+    function getCircularAvatarDataUrl(imgCanvas, x, y, size) {
+      const outCanvas = document.createElement('canvas');
+      outCanvas.width = 120;
+      outCanvas.height = 120;
+      const ctx = outCanvas.getContext('2d');
+      ctx.beginPath();
+      ctx.arc(60, 60, 60, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(imgCanvas, x, y, size, size, 0, 0, 120, 120);
+      return outCanvas.toDataURL('image/jpeg', 0.92);
+    }
+
+    // ─── Matches List Rendering & Navigation ────────────────────────────
+    function renderMatchesList() {
+      const container = document.getElementById('matchesList');
+      if (!container) return;
+      container.innerHTML = matchesData.map((item) => `
+        <div class="match-row" data-name="${item.name}">
+          <img class="avatar" src="${item.image}" alt="${item.name}">
+          <div class="match-info">
+            <div class="name-row">
+              <span class="name">${item.name}</span>
+            </div>
+            <div class="preview-text ${item.isMatchedNotice ? 'matched' : ''}">${item.preview}</div>
+          </div>
         </div>
-        <div class="preview-text ${item.isMatchedNotice ? 'matched' : ''}">${item.preview}</div>
-      </div>
-    </div>
-    <div class="divider-line"></div>
-  `).join('');
+        <div class="divider-line"></div>
+      `).join('');
+
+      attachMatchRowClickListeners();
+    }
+
+    function openChatForMatch(match) {
+      if (!chatOverlay) return;
+      scrollRestoreY = window.scrollY || document.documentElement.scrollTop || 0;
+      tabScrollPositions.matches = scrollRestoreY;
+
+      const titleEl = chatOverlay.querySelector('.chat-title');
+      const feedEl = document.getElementById('chatFeed');
+      const sheet = document.getElementById('expertBottomSheet');
+
+      if (match.name === 'Aubrey') {
+        if (titleEl) titleEl.textContent = 'Aubrey';
+        renderAubreyChat();
+        initCoachListener();
+        sheetState = 'collapsed';
+        if (sheet) {
+          sheet.style.display = 'block';
+          sheet.className = 'expert-sheet collapsed';
+        }
+      } else {
+        if (titleEl) titleEl.textContent = match.name;
+        if (sheet) sheet.style.display = 'none';
+        if (feedEl) {
+          feedEl.innerHTML = `
+            <div style="padding: 40px 16px; text-align: center;">
+              <img src="${match.image}" alt="${match.name}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 14px; box-shadow: 0 4px 14px rgba(0,0,0,0.1);">
+              <div style="font-size: 14px; font-weight: 600; color: #8e8e93; margin-bottom: 24px;">You matched with ${match.name}</div>
+              <div class="chat-bubble received" style="margin: 0 auto; display: inline-block; max-width: 82%; text-align: left; padding: 13px 18px; font-size: 16px; line-height: 1.35;">
+                Start the chat with ${match.name}
+              </div>
+            </div>
+          `;
+        }
+      }
+
+      chatOverlay.classList.remove('sheet-open');
+      chatOverlay.classList.add('active');
+      document.body.classList.add('chat-open');
+      document.body.style.top = `-${scrollRestoreY}px`;
+      if (chatBody) chatBody.scrollTop = 0;
+    }
+
+    function attachMatchRowClickListeners() {
+      document.querySelectorAll('.match-row').forEach(row => {
+        row.addEventListener('click', () => {
+          const name = row.getAttribute('data-name');
+          const match = matchesData.find(m => m.name === name);
+          if (match) {
+            openChatForMatch(match);
+          }
+        });
+      });
+    }
 
     const chatOverlay = document.getElementById('chatOverlay');
     const chatBackBtn = document.getElementById('chatBackBtn');
@@ -1364,32 +1818,575 @@
       document.body.classList.remove('chat-open');
       document.body.style.top = '';
       window.scrollTo(0, scrollRestoreY);
-      // Reset sheet state
       sheetState = 'collapsed';
       const sheet = document.getElementById('expertBottomSheet');
       if (sheet) sheet.className = 'expert-sheet collapsed';
     }
 
-    document.querySelectorAll('.match-row').forEach(row => {
-      row.addEventListener('click', () => {
-        const name = row.getAttribute('data-name');
-        if (name === 'Aubrey') {
-          scrollRestoreY = window.scrollY || document.documentElement.scrollTop || 0;
-          tabScrollPositions.matches = scrollRestoreY;
-          renderAubreyChat();
-          // Init Firestore listener (idempotent — only fires once)
-          initCoachListener();
-          sheetState = 'collapsed';
-          const sheet = document.getElementById('expertBottomSheet');
-          if (sheet) sheet.className = 'expert-sheet collapsed';
-          chatOverlay.classList.remove('sheet-open');
-          chatOverlay.classList.add('active');
-          document.body.classList.add('chat-open');
-          document.body.style.top = `-${scrollRestoreY}px`;
-          if (chatBody) chatBody.scrollTop = 0;
+    // Initial render of matches list
+    renderMatchesList();
+
+    // ─── Screenshot Match Importer ──────────────────────────────────────
+    const importMatchesBtn = document.getElementById('importMatchesBtn');
+    const matchesFileInput = document.getElementById('matchesFileInput');
+    const importReviewModal = document.getElementById('importReviewModal');
+    const importCancelBtn = document.getElementById('importCancelBtn');
+    const importLoadingState = document.getElementById('importLoadingState');
+    const importLoadingSubtitle = document.getElementById('importLoadingSubtitle');
+    const importContentState = document.getElementById('importContentState');
+    const importReviewList = document.getElementById('importReviewList');
+    const importConfirmBtn = document.getElementById('importConfirmBtn');
+
+    let stagedDetectedMatches = [];
+
+    if (importMatchesBtn && matchesFileInput) {
+      importMatchesBtn.addEventListener('click', () => {
+        matchesFileInput.value = '';
+        matchesFileInput.click();
+      });
+
+      matchesFileInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file) {
+          processScreenshotFile(file);
         }
       });
-    });
+    }
+
+    if (importCancelBtn) {
+      importCancelBtn.addEventListener('click', closeImportModal);
+    }
+
+    function closeImportModal() {
+      if (!importReviewModal) return;
+      importReviewModal.classList.remove('active');
+      setTimeout(() => {
+        importReviewModal.style.display = 'none';
+        if (matchesFileInput) matchesFileInput.value = '';
+      }, 300);
+    }
+
+    function openImportModal() {
+      if (!importReviewModal) return;
+      importReviewModal.style.display = 'flex';
+      void importReviewModal.offsetWidth;
+      importReviewModal.classList.add('active');
+      importLoadingState.style.display = 'flex';
+      importContentState.style.display = 'none';
+    }
+
+    async function processScreenshotFile(file) {
+      openImportModal();
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const img = new Image();
+        img.onload = async () => {
+          await analyzeScreenshotImage(img);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function analyzeScreenshotImage(img) {
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+      const imgCanvas = document.createElement('canvas');
+      imgCanvas.width = w;
+      imgCanvas.height = h;
+      const ctx = imgCanvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+
+      const fullImageData = ctx.getImageData(0, 0, w, h);
+      const imgBytes = fullImageData.data;
+
+      const grayAt = (px, py) => {
+        const idx = (py * w + px) * 4;
+        return 0.299 * imgBytes[idx] + 0.587 * imgBytes[idx + 1] + 0.114 * imgBytes[idx + 2];
+      };
+
+      const rgbAt = (px, py) => {
+        const idx = (py * w + px) * 4;
+        return [imgBytes[idx], imgBytes[idx + 1], imgBytes[idx + 2]];
+      };
+
+      if (importLoadingSubtitle) {
+        importLoadingSubtitle.textContent = 'Detecting match rows & dividers...';
+      }
+
+      // ─── 1. Detect Bottom Navigation Bar ────────────────────────────────
+      let bottomBoundary = h;
+      for (let y = h - 1; y >= Math.round(h * 0.75); y--) {
+        let rSum = 0, gSum = 0, bSum = 0, samples = 0;
+        for (let x = Math.round(w * 0.1); x < Math.round(w * 0.9); x += 12) {
+          const [r, g, b] = rgbAt(x, y);
+          rSum += r; gSum += g; bSum += b;
+          samples++;
+        }
+        const avgR = rSum / samples;
+        const avgG = gSum / samples;
+        const avgB = bSum / samples;
+
+        // Detect purple or dark bottom nav bar
+        if ((avgG < 90 && (avgR > 65 || avgB > 65)) || (avgR < 50 && avgG < 50 && avgB < 50)) {
+          bottomBoundary = y;
+        }
+      }
+
+      // ─── 2. Scan for Divider Lines across middle/right column ──────────
+      const xStart = Math.round(w * 0.25);
+      const xEnd = Math.round(w * 0.95);
+      const stepX = 4;
+      const numSamples = Math.floor((xEnd - xStart) / stepX);
+
+      const rawCandidates = [];
+      const scanStart = Math.round(h * 0.08);
+      const scanEnd = bottomBoundary - 15;
+
+      for (let y = scanStart; y < scanEnd; y++) {
+        let sum = 0;
+        for (let x = xStart; x < xEnd; x += stepX) {
+          sum += grayAt(x, y);
+        }
+        const mean = sum / numSamples;
+        let sumSqDiff = 0;
+        for (let x = xStart; x < xEnd; x += stepX) {
+          const diff = grayAt(x, y) - mean;
+          sumSqDiff += diff * diff;
+        }
+        const std = Math.sqrt(sumSqDiff / numSamples);
+
+        if (std < 5.0 && mean >= 235 && mean <= 252) {
+          let aboveSum = 0, belowSum = 0, edgeSamples = 0;
+          for (let x = xStart; x < xEnd; x += stepX * 2) {
+            aboveSum += grayAt(x, Math.max(0, y - 2));
+            belowSum += grayAt(x, Math.min(h - 1, y + 2));
+            edgeSamples++;
+          }
+          const aboveMean = aboveSum / edgeSamples;
+          const belowMean = belowSum / edgeSamples;
+          const diffAbove = aboveMean - mean;
+          const diffBelow = belowMean - mean;
+
+          // A true divider hairline must be bounded by brighter whitespace on BOTH sides
+          if (diffAbove >= 1.5 && diffBelow >= 1.5) {
+            rawCandidates.push({ y, contrast: diffAbove + diffBelow, std });
+          }
+        }
+      }
+
+      // Group nearby candidates within 20px, keeping highest contrast
+      const clustered = [];
+      for (const c of rawCandidates) {
+        if (clustered.length === 0 || c.y > clustered[clustered.length - 1].y + 20) {
+          clustered.push(c);
+        } else if (c.contrast > clustered[clustered.length - 1].contrast) {
+          clustered[clustered.length - 1] = c;
+        }
+      }
+
+      // Enforce minimum distance between match rows (>= 18% of width)
+      const minRowDist = Math.round(w * 0.18);
+      const filteredDividers = [];
+      for (const c of clustered) {
+        if (filteredDividers.length === 0 || c.y - filteredDividers[filteredDividers.length - 1].y >= minRowDist) {
+          filteredDividers.push(c);
+        } else if (c.contrast > filteredDividers[filteredDividers.length - 1].contrast) {
+          filteredDividers[filteredDividers.length - 1] = c;
+        }
+      }
+
+      const clusteredDividers = filteredDividers.map(c => c.y);
+
+      // If the space between last divider and bottom boundary is a full row, append boundary
+      if (clusteredDividers.length > 0 && (bottomBoundary - clusteredDividers[clusteredDividers.length - 1]) >= Math.round(w * 0.20)) {
+        clusteredDividers.push(bottomBoundary);
+      }
+      console.log('[DEBUG_PARSER] clusteredDividers:', JSON.stringify(clusteredDividers), 'bottomBoundary:', bottomBoundary);
+
+      // ─── 3. Filter Valid Match Rows ─────────────────────────────────────
+      const validRows = [];
+      for (let i = 0; i < clusteredDividers.length - 1; i++) {
+        const top = clusteredDividers[i];
+        const bot = clusteredDividers[i + 1];
+        const rowH = bot - top;
+
+        // Valid Hinge match row height is between 20% and 40% of image width (excludes partial truncated rows at bottom)
+        if (rowH < Math.round(w * 0.20) || rowH > Math.round(w * 0.40)) {
+          console.log(`[DEBUG_PARSER] Row ${i} (${top}..${bot}, h=${rowH}) rejected by rowH cutoff [${Math.round(w * 0.20)}, ${Math.round(w * 0.40)}]`);
+          continue;
+        }
+
+        // Check row background brightness (reject dark/purple warning banners)
+        let rowBrightSum = 0, rowSampleCount = 0;
+        for (let x = Math.round(w * 0.3); x < Math.round(w * 0.95); x += 10) {
+          const [r, g, b] = rgbAt(x, top + Math.round(rowH / 2));
+          rowBrightSum += (0.299 * r + 0.587 * g + 0.114 * b);
+          rowSampleCount++;
+        }
+        const rowBrightMean = rowBrightSum / rowSampleCount;
+        if (rowBrightMean < 160) {
+          console.log(`[DEBUG_PARSER] Row ${i} rejected by rowBrightMean: ${rowBrightMean}`);
+          continue; // Non-white / banner card
+        }
+
+        // Avatar positioning (centered vertically within row)
+        const avatarSize = Math.round(w * 0.175);
+        const avatarX = Math.round(w * 0.05);
+        let avatarY = top + Math.max(0, Math.round((rowH - avatarSize) / 2));
+        if (avatarY + avatarSize > bottomBoundary) {
+          avatarY = bottomBoundary - avatarSize;
+        }
+
+        // Verify avatar patch has image texture (reject text-only headers like 'Your turn')
+        let patchSum = 0, patchSumSq = 0, patchCount = 0;
+        for (let py = avatarY; py < avatarY + avatarSize; py += 3) {
+          for (let px = avatarX; px < avatarX + avatarSize; px += 3) {
+            const g = grayAt(px, py);
+            patchSum += g;
+            patchSumSq += g * g;
+            patchCount++;
+          }
+        }
+        const patchMean = patchSum / patchCount;
+        const patchStd = Math.sqrt(Math.max(0, (patchSumSq / patchCount) - (patchMean * patchMean)));
+
+        console.log(`[DEBUG_PARSER] Row ${i} (${top}..${bot}, h=${rowH}): patchMean=${patchMean.toFixed(1)}, patchStd=${patchStd.toFixed(1)}`);
+        if (patchStd > 14 && patchMean < 252) {
+          validRows.push({
+            top,
+            bot,
+            rowH,
+            avatarX,
+            avatarY,
+            avatarSize
+          });
+        } else {
+          console.log(`[DEBUG_PARSER] Row ${i} rejected by avatar patch (patchStd=${patchStd}, patchMean=${patchMean})`);
+        }
+      }
+
+      // Fallback: if no divider lines were detected, use geometry fallback
+      if (validRows.length === 0) {
+        const fallbackAvatarSize = Math.round(w * 0.1731);
+        const fallbackStepY = Math.round(h * 0.11875);
+        for (let y = Math.round(h * 0.10); y + fallbackAvatarSize <= bottomBoundary - 10; y += fallbackStepY) {
+          validRows.push({
+            top: y - 10,
+            bot: y + fallbackAvatarSize + 10,
+            rowH: fallbackStepY,
+            avatarX: Math.round(w * 0.05),
+            avatarY: y,
+            avatarSize: fallbackAvatarSize
+          });
+        }
+      }
+
+      // ─── 4. OCR Worker & Text Extraction ────────────────────────────────
+      if (importLoadingSubtitle) {
+        importLoadingSubtitle.textContent = 'Initializing text recognition...';
+      }
+
+      let worker = null;
+      try {
+        if (window.Tesseract && typeof Tesseract.createWorker === 'function') {
+          const workerPromise = Tesseract.createWorker('eng');
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('OCR init timeout')), 4500));
+          worker = await Promise.race([workerPromise, timeoutPromise]);
+          if (worker && typeof worker.setParameters === 'function') {
+            await worker.setParameters({
+              tessedit_pageseg_mode: '7' // Single text line mode: stops hallucinations
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Tesseract worker initialization skipped/timed out:', err);
+        worker = null;
+      }
+
+      const detected = [];
+      let rowIndex = 0;
+
+      for (const row of validRows) {
+        rowIndex++;
+        if (importLoadingSubtitle) {
+          importLoadingSubtitle.textContent = `Analyzing match ${rowIndex} of ${validRows.length}...`;
+        }
+
+        // A. Circular Avatar Crop & Visual Hash
+        const avatarUrl = getCircularAvatarDataUrl(imgCanvas, row.avatarX, row.avatarY, row.avatarSize);
+        const avatarHash = getAvatarHash(imgCanvas, row.avatarX, row.avatarY, row.avatarSize);
+
+        // B. Dynamic Name Line Isolation (strictly cut off before purple hearts/icons)
+        const nameX = row.avatarX + row.avatarSize + Math.round(w * 0.015);
+        const searchW = Math.round(w * 0.38);
+        const searchH = Math.round(row.rowH * 0.75);
+
+        // Scan row for bold black text (brightness < 130, neutral saturation to avoid purple heart/badge)
+        let startTextX = -1;
+        let endTextX = searchW;
+        let whiteGap = 0;
+
+        for (let dx = 0; dx < searchW; dx++) {
+          let hasDarkPixel = false;
+          for (let dy = 0; dy < searchH; dy++) {
+            const [r, g, b] = rgbAt(nameX + dx, row.top + dy);
+            const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+            const isPurple = Math.abs(r - b) > 25 && b > r * 0.8;
+            if (brightness < 130 && !isPurple) {
+              hasDarkPixel = true;
+              break;
+            }
+          }
+
+          if (hasDarkPixel) {
+            if (startTextX === -1) {
+              startTextX = Math.max(0, dx - 2);
+            }
+            whiteGap = 0;
+          } else if (startTextX !== -1) {
+            whiteGap++;
+            // Gap of >= 7px marks end of name before badge/heart icons
+            if (whiteGap >= 7) {
+              endTextX = dx - whiteGap + 2;
+              break;
+            }
+          }
+        }
+
+        if (startTextX === -1) {
+          startTextX = 0;
+          endTextX = Math.round(w * 0.25);
+        }
+
+        // Find vertical bounds of text within [startTextX, endTextX]
+        let minTextY = searchH;
+        let maxTextY = 0;
+        for (let dy = 0; dy < searchH; dy++) {
+          for (let dx = startTextX; dx < endTextX; dx++) {
+            const [r, g, b] = rgbAt(nameX + dx, row.top + dy);
+            const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+            const isPurple = Math.abs(r - b) > 25 && b > r * 0.8;
+            if (brightness < 130 && !isPurple) {
+              if (dy < minTextY) minTextY = dy;
+              if (dy > maxTextY) maxTextY = dy;
+            }
+          }
+        }
+
+        if (maxTextY <= minTextY) {
+          minTextY = Math.round(row.rowH * 0.15);
+          maxTextY = Math.round(row.rowH * 0.50);
+        }
+
+        const actualMinY = Math.max(0, minTextY - 4);
+        const actualMaxY = Math.min(row.rowH, maxTextY + 5);
+        const textH = actualMaxY - actualMinY;
+        const textW = Math.max(20, endTextX - startTextX);
+
+        const cropX = nameX + startTextX;
+        const cropY = row.top + actualMinY;
+
+        const scale = 3;
+        const pad = 24;
+        const nameCanvas = document.createElement('canvas');
+        nameCanvas.width = textW * scale + pad * 2;
+        nameCanvas.height = textH * scale + pad * 2;
+        const nameCtx = nameCanvas.getContext('2d');
+        nameCtx.fillStyle = '#ffffff';
+        nameCtx.fillRect(0, 0, nameCanvas.width, nameCanvas.height);
+        nameCtx.imageSmoothingEnabled = true;
+        nameCtx.imageSmoothingQuality = 'high';
+        nameCtx.drawImage(imgCanvas, cropX, cropY, textW, textH, pad, pad, textW * scale, textH * scale);
+
+        let detectedName = '';
+        if (worker) {
+          try {
+            const recognizePromise = worker.recognize(nameCanvas);
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Row OCR timeout')), 2200));
+            const res = await Promise.race([recognizePromise, timeoutPromise]);
+            const lines = (res.data.text || '').split('\n');
+            for (const line of lines) {
+              const words = line.split(/\s+/);
+              for (const wd of words) {
+                const clean = wd.replace(/[^a-zA-Z]/g, '');
+                if (clean.length >= 2) {
+                  detectedName = clean.charAt(0).toUpperCase() + clean.slice(1).toLowerCase();
+                  break;
+                }
+              }
+              if (detectedName) break;
+            }
+          } catch (e) {
+            console.warn('OCR error on row', rowIndex, e);
+          }
+        }
+
+        if (!detectedName) {
+          detectedName = `Match ${rowIndex}`;
+        }
+
+        // C. Dual-key Deduplication: Check Name & Avatar Hash
+        let isDuplicate = false;
+        for (const existing of matchesData) {
+          const nameMatches = existing.name.toLowerCase() === detectedName.toLowerCase();
+          const dist = (existing.hash && avatarHash) ? hammingDistance(existing.hash, avatarHash) : 64;
+
+          if (dist <= 10 || (nameMatches && dist <= 16)) {
+            isDuplicate = true;
+            if (dist <= 6) detectedName = existing.name;
+            break;
+          }
+        }
+
+        detected.push({
+          id: `det_${rowIndex}_${Date.now()}`,
+          name: detectedName,
+          image: avatarUrl,
+          hash: avatarHash,
+          isDuplicate: isDuplicate,
+          checked: !isDuplicate
+        });
+      }
+
+      if (worker) {
+        try {
+          await worker.terminate();
+        } catch (e) {}
+      }
+
+      stagedDetectedMatches = detected;
+      renderImportReviewSheet();
+    }
+
+    function renderImportReviewSheet() {
+      importLoadingState.style.display = 'none';
+      importContentState.style.display = 'flex';
+
+      const newMatches = stagedDetectedMatches.filter(m => !m.isDuplicate);
+      const duplicateMatches = stagedDetectedMatches.filter(m => m.isDuplicate);
+
+      let html = '';
+
+      if (newMatches.length > 0) {
+        html += `<div class="import-section-title">New Matches Found (${newMatches.length})</div>`;
+        html += newMatches.map(m => `
+          <div class="import-match-card ${m.checked ? 'checked' : ''}" data-id="${m.id}">
+            <img class="import-card-avatar" src="${m.image}" alt="${m.name}">
+            <div class="import-card-info">
+              <input type="text" class="import-card-name-input" value="${m.name}" data-id="${m.id}" aria-label="Match name">
+              <span class="preview-text matched" style="font-size: 13px; color: #8e8e93; margin-top: 2px;">You matched</span>
+            </div>
+            <div class="import-checkbox-custom">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        html += `
+          <div style="padding: 24px 8px; text-align: center; color: #8e8e93; font-size: 15px;">
+            No new matches detected in this screenshot.
+          </div>
+        `;
+      }
+
+      if (duplicateMatches.length > 0) {
+        html += `<div class="import-section-title" style="margin-top: 20px;">Already in Matches (${duplicateMatches.length})</div>`;
+        html += duplicateMatches.map(m => `
+          <div class="import-match-card disabled">
+            <img class="import-card-avatar" src="${m.image}" alt="${m.name}">
+            <div class="import-card-info">
+              <span style="font-size: 16px; font-weight: 600; color: #555555;">${m.name}</span>
+              <span class="import-card-badge">Already Added</span>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      importReviewList.innerHTML = html;
+
+      // Attach card toggle listeners
+      importReviewList.querySelectorAll('.import-match-card:not(.disabled)').forEach(card => {
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('.import-card-name-input')) return;
+          const id = card.getAttribute('data-id');
+          const item = stagedDetectedMatches.find(m => m.id === id);
+          if (item) {
+            item.checked = !item.checked;
+            card.classList.toggle('checked', item.checked);
+            updateConfirmButton();
+          }
+        });
+      });
+
+      // Attach name input change listeners
+      importReviewList.querySelectorAll('.import-card-name-input').forEach(input => {
+        input.addEventListener('input', (e) => {
+          const id = input.getAttribute('data-id');
+          const item = stagedDetectedMatches.find(m => m.id === id);
+          if (item) {
+            item.name = e.target.value.trim() || item.name;
+          }
+        });
+      });
+
+      updateConfirmButton();
+    }
+
+    function updateConfirmButton() {
+      const checkedItems = stagedDetectedMatches.filter(m => !m.isDuplicate && m.checked);
+      if (checkedItems.length > 0) {
+        importConfirmBtn.disabled = false;
+        importConfirmBtn.textContent = `Import ${checkedItems.length} New Match${checkedItems.length > 1 ? 'es' : ''}`;
+      } else {
+        importConfirmBtn.disabled = true;
+        importConfirmBtn.textContent = 'Import Matches';
+      }
+    }
+
+    if (importConfirmBtn) {
+      importConfirmBtn.addEventListener('click', () => {
+        const toAdd = stagedDetectedMatches.filter(m => !m.isDuplicate && m.checked);
+        if (toAdd.length === 0) return;
+
+        const newFormattedMatches = toAdd.map(m => ({
+          name: m.name,
+          preview: `You matched with ${m.name}`,
+          isMatchedNotice: true,
+          image: m.image,
+          hash: m.hash
+        }));
+
+        customMatches = [...newFormattedMatches, ...customMatches];
+        try {
+          localStorage.setItem('hinge_custom_matches', JSON.stringify(customMatches));
+        } catch (e) {
+          console.warn('Could not save to localStorage:', e);
+        }
+
+        matchesData = [...customMatches, ...defaultMatchesData];
+        renderMatchesList();
+        closeImportModal();
+      });
+    }
+
+    // Expose for testing & manual trigger
+    window.processScreenshotFile = processScreenshotFile;
+    window.analyzeScreenshotImage = analyzeScreenshotImage;
+    window.runTestParser = async function() {
+      try {
+        console.log('[TEST_PARSER] Starting test parse...');
+        const res = await fetch('/media_1789926022466.jpg');
+        const blob = await res.blob();
+        const file = new File([blob], 'media_1789926022466.jpg', { type: 'image/jpeg' });
+        await processScreenshotFile(file);
+        console.log('[TEST_PARSER] processScreenshotFile triggered successfully');
+      } catch (err) {
+        console.error('[TEST_PARSER] Error:', err);
+      }
+    };
 
     // Touch boundary overscroll guards to prevent white screen and viewport rubber-banding
     if (chatOverlay) {
@@ -1614,6 +2611,7 @@
     }
   </script>
 
+  <button id="debugTestBtn" style="display:none;" onclick="window.runTestParser()">⚡ Test Parser</button>
 </body>
 
 </html>

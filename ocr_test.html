@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body>
+  <h1>OCR Diagnostic Test</h1>
+  <pre id="log">Testing...</pre>
+  <div id="canvases"></div>
+
+  <script>
+    async function test() {
+      const log = document.getElementById('log');
+      const img = new Image();
+      img.src = 'media_1789926022466.jpg';
+      await new Promise(r => img.onload = r);
+
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const imgBytes = ctx.getImageData(0, 0, w, h).data;
+
+      const grayAt = (px, py) => {
+        const idx = (py * w + px) * 4;
+        return 0.299 * imgBytes[idx] + 0.587 * imgBytes[idx + 1] + 0.114 * imgBytes[idx + 2];
+      };
+      const rgbAt = (px, py) => {
+        const idx = (py * w + px) * 4;
+        return [imgBytes[idx], imgBytes[idx + 1], imgBytes[idx + 2]];
+      };
+
+      // 1. Detect Bottom Navigation Bar
+      let bottomBoundary = h;
+      for (let y = h - 1; y >= Math.round(h * 0.75); y--) {
+        let rSum = 0, gSum = 0, bSum = 0, samples = 0;
+        for (let x = Math.round(w * 0.1); x < Math.round(w * 0.9); x += 12) {
+          const [r, g, b] = rgbAt(x, y);
+          rSum += r; gSum += g; bSum += b;
+          samples++;
+        }
+        const avgR = rSum / samples;
+        const avgG = gSum / samples;
+        const avgB = bSum / samples;
+        if ((avgG < 90 && (avgR > 65 || avgB > 65)) || (avgR < 50 && avgG < 50 && avgB < 50)) {
+          bottomBoundary = y;
+        }
+      }
+
+      // 2. Divider detection
+      const xStart = Math.round(w * 0.25);
+      const xEnd = Math.round(w * 0.95);
+      const stepX = 4;
+      const numSamples = Math.floor((xEnd - xStart) / stepX);
+
+      const rawCandidates = [];
+      const scanStart = Math.round(h * 0.08);
+      const scanEnd = bottomBoundary - 15;
+
+      for (let y = scanStart; y < scanEnd; y++) {
+        let sum = 0;
+        for (let x = xStart; x < xEnd; x += stepX) {
+          sum += grayAt(x, y);
+        }
+        const mean = sum / numSamples;
+        let sumSqDiff = 0;
+        for (let x = xStart; x < xEnd; x += stepX) {
+          const diff = grayAt(x, y) - mean;
+          sumSqDiff += diff * diff;
+        }
+        const std = Math.sqrt(sumSqDiff / numSamples);
+
+        if (std < 5.0 && mean >= 235 && mean <= 252) {
+          let aboveSum = 0, belowSum = 0, edgeSamples = 0;
+          for (let x = xStart; x < xEnd; x += stepX * 2) {
+            aboveSum += grayAt(x, Math.max(0, y - 2));
+            belowSum += grayAt(x, Math.min(h - 1, y + 2));
+            edgeSamples++;
+          }
+          const aboveMean = aboveSum / edgeSamples;
+          const belowMean = belowSum / edgeSamples;
+          const diffAbove = aboveMean - mean;
+          const diffBelow = belowMean - mean;
+
+          if (diffAbove >= 1.5 && diffBelow >= 1.5) {
+            rawCandidates.push({ y, contrast: diffAbove + diffBelow, std });
+          }
+        }
+      }
+
+      const clustered = [];
+      for (const cand of rawCandidates) {
+        if (clustered.length === 0 || cand.y > clustered[clustered.length - 1].y + 20) {
+          clustered.push(cand);
+        } else if (cand.contrast > clustered[clustered.length - 1].contrast) {
+          clustered[clustered.length - 1] = cand;
+        }
+      }
+
+      const minRowDist = Math.round(w * 0.18);
+      const filteredDividers = [];
+      for (const cand of clustered) {
+        if (filteredDividers.length === 0 || cand.y - filteredDividers[filteredDividers.length - 1].y >= minRowDist) {
+          filteredDividers.push(cand);
+        } else if (cand.contrast > filteredDividers[filteredDividers.length - 1].contrast) {
+          filteredDividers[filteredDividers.length - 1] = cand;
+        }
+      }
+
+      const clusteredDividers = filteredDividers.map(cand => cand.y);
+
+      let results = `w=${w}, h=${h}, bottomBoundary=${bottomBoundary}\n`;
+      results += `rawCandidates: ${JSON.stringify(rawCandidates.map(c=>c.y))}\n`;
+      results += `clustered: ${JSON.stringify(clustered.map(c=>c.y))}\n`;
+      results += `filteredDividers: ${JSON.stringify(clusteredDividers)}\n`;
+
+      log.textContent = results;
+      window.__testDone = true;
+    }
+    test();
+  </script>
+</body>
+</html>
