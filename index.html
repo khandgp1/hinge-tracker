@@ -1877,6 +1877,59 @@
 
     async function processScreenshotFile(file) {
       openImportModal();
+
+      // ─── 1. Attempt Native Apple Vision & Python Backend ──────────────────
+      try {
+        if (importLoadingSubtitle) {
+          importLoadingSubtitle.textContent = 'Processing with native Apple Vision...';
+        }
+        const formData = new FormData();
+        formData.append('screenshot', file);
+
+        const resp = await fetch('/api/parse-screenshot', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.success && Array.isArray(data.matches) && data.matches.length > 0) {
+            console.log('[PARSER] Using native Apple Vision response:', data);
+            const detected = [];
+            let rIdx = 0;
+            for (const m of data.matches) {
+              rIdx++;
+              let detName = m.name;
+              const avHash = m.avatarHash;
+              let isDuplicate = false;
+              for (const existing of matchesData) {
+                const nameMatches = existing.name.toLowerCase() === detName.toLowerCase();
+                const dist = (existing.hash && avHash) ? hammingDistance(existing.hash, avHash) : 64;
+                if (dist <= 10 || (nameMatches && dist <= 16)) {
+                  isDuplicate = true;
+                  if (dist <= 6) detName = existing.name;
+                  break;
+                }
+              }
+              detected.push({
+                id: `det_${rIdx}_${Date.now()}`,
+                name: detName,
+                image: m.avatar,
+                hash: avHash,
+                isDuplicate: isDuplicate,
+                checked: !isDuplicate
+              });
+            }
+            stagedDetectedMatches = detected;
+            renderImportReviewSheet();
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('[PARSER] Native backend unavailable, falling back to client-side:', err);
+      }
+
+      // ─── 2. Fallback: In-browser Canvas & Tesseract.js ────────────────────
       const reader = new FileReader();
       reader.onload = async (event) => {
         const img = new Image();
