@@ -105,7 +105,8 @@ def parse_screenshot_image(img_bgr: np.ndarray) -> List[Dict[str, Any]]:
         samples = gray[y, x_start:x_end:step_x]
         mean = np.mean(samples)
         std = np.std(samples)
-        if std < 5.0 and 225 <= mean <= 252:
+        # Broadened threshold to handle both uncompressed Retina PNGs (mean ~221) and JPEGs (mean ~247)
+        if std < 6.0 and 190 <= mean <= 253:
             above = gray[max(0, y - 2), x_start:x_end:step_x * 2]
             below = gray[min(h - 1, y + 2), x_start:x_end:step_x * 2]
             diff_above = np.mean(above) - mean
@@ -130,16 +131,48 @@ def parse_screenshot_image(img_bgr: np.ndarray) -> List[Dict[str, Any]]:
     if len(filtered_dividers) > 0 and (bottom_boundary - filtered_dividers[-1]) >= round(w * 0.20):
         filtered_dividers.append(bottom_boundary)
 
-    # 3. Form match rows and extract avatars + names
-    matches = []
-    avatar_size = round(w * 0.175)
-    avatar_x = round(w * 0.05)
+    # 3. Form match rows (via dividers or Vision text anchors fallback)
     min_row_h = round(w * 0.20)
     max_row_h = round(w * 0.40)
+    avatar_size = round(w * 0.175)
+    avatar_x = round(w * 0.05)
 
-    for i in range(len(filtered_dividers) - 1):
-        top = filtered_dividers[i]
-        bot = filtered_dividers[i + 1]
+    rows = []
+    if len(filtered_dividers) >= 2:
+        for i in range(len(filtered_dividers) - 1):
+            rows.append((filtered_dividers[i], filtered_dividers[i + 1]))
+    else:
+        # Fallback for borderless Hinge feeds with whitespace-separated cards
+        anchors = []
+        for obs in ocr_data.get("observations", []):
+            text = obs.get("text", "").strip()
+            box = obs.get("box", {})
+            py = box.get("pixelY", 0)
+            px = box.get("pixelX", 0)
+            if py < scan_start or py > bottom_boundary - 40:
+                continue
+            if 0.18 * w <= px <= 0.50 * w:
+                if text.startswith(("Start the chat", "Start chat")):
+                    anchors.append(py - int(w * 0.06))
+                elif not text.startswith(("Your turn", "Matches", "Hidden", "4:", "5:", "•l")):
+                    clean = text.split("•")[0].strip()
+                    words = [w_str for w_str in clean.split() if w_str.isalpha()]
+                    if words and len(words) == 1 and len(words[0]) >= 2:
+                        anchors.append(py)
+
+        anchors.sort()
+        clustered_anchors = []
+        for a in anchors:
+            if not clustered_anchors or a - clustered_anchors[-1] > min_row_dist * 0.8:
+                clustered_anchors.append(a)
+
+        for a in clustered_anchors:
+            top = max(0, a - int(w * 0.04))
+            bot = min(h, top + round(w * 0.24))
+            rows.append((top, bot))
+
+    matches = []
+    for top, bot in rows:
         row_h = bot - top
 
         # Exclude partial or oversized rows
@@ -152,7 +185,7 @@ def parse_screenshot_image(img_bgr: np.ndarray) -> List[Dict[str, Any]]:
             continue
 
         avatar_patch = gray[avatar_y:avatar_y + avatar_size, avatar_x:avatar_x + avatar_size]
-        if np.std(avatar_patch) < 15:
+        if np.std(avatar_patch) < 14:
             continue
 
         # Find match name from Apple Vision OCR observations
@@ -162,9 +195,12 @@ def parse_screenshot_image(img_bgr: np.ndarray) -> List[Dict[str, Any]]:
             bx = obs["box"]["pixelX"]
             text = obs["text"].strip()
             # Bounding box must align with row
-            if top <= by <= top + int(row_h * 0.6) and 0.20 * w <= bx <= 0.45 * w:
+            if top <= by <= top + int(row_h * 0.7) and 0.20 * w <= bx <= 0.50 * w:
                 clean = text.split("•")[0].strip()
-                if not clean.startswith(("When", "reply", "Great", "I can", "someone", "ummm", "ahh", "who", "You")):
+                if clean.startswith("Start the chat with "):
+                    match_name = clean.replace("Start the chat with ", "").strip()
+                    break
+                elif not clean.startswith(("When", "reply", "Great", "I can", "someone", "ummm", "ahh", "who", "You", "Start")):
                     words = [w_str for w_str in clean.split() if w_str.isalpha()]
                     if words:
                         match_name = words[0]
