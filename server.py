@@ -12,6 +12,9 @@ import json
 import base64
 import tempfile
 import subprocess
+import shutil
+import argparse
+import time
 import email.parser
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from typing import List, Dict, Any, Tuple, Optional
@@ -21,6 +24,8 @@ import numpy as np
 # Directory of this script
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 VISION_BIN = os.path.join(BASE_DIR, "bin", "vision_ocr")
+NGROK_BIN = os.path.join(BASE_DIR, "bin", "ngrok")
+DEFAULT_DOMAIN = "subplot-sarcastic-yesterday.ngrok-free.dev"
 
 
 def compute_ahash(img_bgr: np.ndarray) -> str:
@@ -203,6 +208,7 @@ class HingeTrackerHandler(SimpleHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, ngrok-skip-browser-warning")
             self.end_headers()
             resp = {
                 "status": "ok",
@@ -278,6 +284,7 @@ class HingeTrackerHandler(SimpleHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type, ngrok-skip-browser-warning")
                 self.end_headers()
                 self.wfile.write(json.dumps(resp).encode("utf-8"))
 
@@ -285,6 +292,7 @@ class HingeTrackerHandler(SimpleHTTPRequestHandler):
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type, ngrok-skip-browser-warning")
                 self.end_headers()
                 err_resp = {"success": False, "error": str(e)}
                 self.wfile.write(json.dumps(err_resp).encode("utf-8"))
@@ -297,22 +305,65 @@ class HingeTrackerHandler(SimpleHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, ngrok-skip-browser-warning")
         self.end_headers()
 
 
-def run(port: int = 8080):
+def run(port: int = 8080, enable_tunnel: bool = False, domain: str = DEFAULT_DOMAIN):
     server_address = ("", port)
     httpd = HTTPServer(server_address, HingeTrackerHandler)
-    print(f"[SERVER] Hinge Tracker Server running at http://localhost:{port}/")
-    print(f"[SERVER] Engine: Native Apple Vision + OpenCV (Swift & Python)")
+
+    ngrok_proc = None
+    if enable_tunnel:
+        ngrok_bin = NGROK_BIN if os.path.isfile(NGROK_BIN) else shutil.which("ngrok")
+        if not ngrok_bin:
+            print("[ERROR] ngrok binary not found in bin/ngrok or system PATH.")
+            print("Please ensure bin/ngrok exists or run without --tunnel.")
+            sys.exit(1)
+
+        print(f"[TUNNEL] Launching ngrok tunnel for port {port} on https://{domain}...")
+        try:
+            ngrok_proc = subprocess.Popen(
+                [ngrok_bin, "http", str(port), f"--domain={domain}"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE
+            )
+            time.sleep(1.5)
+            if ngrok_proc.poll() is not None:
+                _, err_out = ngrok_proc.communicate()
+                print(f"[ERROR] ngrok failed to start:\n{err_out.decode('utf-8', errors='ignore')}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"[ERROR] Failed to spawn ngrok: {e}")
+            sys.exit(1)
+
+    print("\n" + "=" * 66)
+    print("🚀 Hinge Tracker Server Active!")
+    print(f" • Local URL:   http://localhost:{port}/")
+    if enable_tunnel:
+        print(f" • Tunnel URL:  https://{domain}/")
+        print(f" • API Health:  https://{domain}/api/health")
+        print(" • Mobile:      Ready for screenshot imports from GitHub Pages!")
+    print(" • Engine:      Native Apple Vision + OpenCV")
+    print("=" * 66 + "\n")
+
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
         print("\n[SERVER] Shutting down.")
+    finally:
         httpd.server_close()
+        if ngrok_proc and ngrok_proc.poll() is None:
+            print("[TUNNEL] Terminating ngrok tunnel...")
+            ngrok_proc.terminate()
+            ngrok_proc.wait()
 
 
 if __name__ == "__main__":
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
-    run(port)
+    parser = argparse.ArgumentParser(description="Hinge Tracker Server with Native Apple Vision & Tunnel")
+    parser.add_argument("port", nargs="?", type=int, default=8080, help="Local port (default: 8080)")
+    parser.add_argument("-t", "--tunnel", action="store_true", help="Launch ngrok HTTPS tunnel alongside server")
+    parser.add_argument("-d", "--domain", type=str, default=DEFAULT_DOMAIN, help=f"Static ngrok domain (default: {DEFAULT_DOMAIN})")
+
+    args = parser.parse_args()
+    run(port=args.port, enable_tunnel=args.tunnel, domain=args.domain)

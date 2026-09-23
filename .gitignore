@@ -1,0 +1,10 @@
+# Binaries & Downloads
+bin/ngrok
+*.zip
+
+# Python
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store

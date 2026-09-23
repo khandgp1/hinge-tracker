@@ -9,8 +9,8 @@
   <!-- Firebase SDK (compat v9) -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <!-- Tesseract.js for OCR name recognition -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <!-- Application Configuration -->
+  <script src="config.js"></script>
   <style>
     * {
       margin: 0;
@@ -1192,6 +1192,49 @@
       opacity: 0.35;
       cursor: not-allowed;
     }
+
+    /* Floating Toast Notification */
+    .app-toast {
+      position: fixed;
+      bottom: 84px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(28, 28, 30, 0.96);
+      color: #ffffff;
+      padding: 13px 18px;
+      border-radius: 14px;
+      font-size: 13.5px;
+      font-weight: 500;
+      line-height: 1.4;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      z-index: 10000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      max-width: 90%;
+      text-align: left;
+    }
+
+    .app-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+      pointer-events: auto;
+    }
+
+    .app-toast.error {
+      background: rgba(36, 18, 18, 0.96);
+      border: 1px solid rgba(255, 69, 58, 0.35);
+      color: #ffd2ce;
+    }
+
+    .app-toast.error svg {
+      stroke: #ff453a;
+    }
   </style>
 </head>
 
@@ -1875,441 +1918,107 @@
       importContentState.style.display = 'none';
     }
 
+    let toastTimeout = null;
+    function showToast(message, type = 'error', durationMs = 5000) {
+      let toast = document.getElementById('appToast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'appToast';
+        toast.className = 'app-toast';
+        document.body.appendChild(toast);
+      }
+      toast.className = `app-toast ${type}`;
+      toast.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span>${message}</span>
+      `;
+      void toast.offsetWidth;
+      toast.classList.add('show');
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+      }, durationMs);
+    }
+
     async function processScreenshotFile(file) {
       openImportModal();
 
-      // ─── 1. Attempt Native Apple Vision & Python Backend ──────────────────
+      if (importLoadingSubtitle) {
+        importLoadingSubtitle.textContent = 'Processing with native Apple Vision...';
+      }
+
+      const apiBase = typeof getApiBaseUrl === 'function' ? getApiBaseUrl() : '';
+      const targetEndpoint = `${apiBase}/api/parse-screenshot`;
+
       try {
-        if (importLoadingSubtitle) {
-          importLoadingSubtitle.textContent = 'Processing with native Apple Vision...';
-        }
         const formData = new FormData();
         formData.append('screenshot', file);
 
-        const resp = await fetch('/api/parse-screenshot', {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+        const resp = await fetch(targetEndpoint, {
           method: 'POST',
-          body: formData
+          body: formData,
+          signal: controller.signal,
+          headers: {
+            'ngrok-skip-browser-warning': 'true'
+          }
         });
+        clearTimeout(timeoutId);
 
-        if (resp.ok) {
-          const data = await resp.json();
-          if (data && data.success && Array.isArray(data.matches) && data.matches.length > 0) {
-            console.log('[PARSER] Using native Apple Vision response:', data);
-            const detected = [];
-            let rIdx = 0;
-            for (const m of data.matches) {
-              rIdx++;
-              let detName = m.name;
-              const avHash = m.avatarHash;
-              let isDuplicate = false;
-              for (const existing of matchesData) {
-                const nameMatches = existing.name.toLowerCase() === detName.toLowerCase();
-                const dist = (existing.hash && avHash) ? hammingDistance(existing.hash, avHash) : 64;
-                if (dist <= 10 || (nameMatches && dist <= 16)) {
-                  isDuplicate = true;
-                  if (dist <= 6) detName = existing.name;
-                  break;
-                }
-              }
-              detected.push({
-                id: `det_${rIdx}_${Date.now()}`,
-                name: detName,
-                image: m.avatar,
-                hash: avHash,
-                isDuplicate: isDuplicate,
-                checked: !isDuplicate
-              });
-            }
-            stagedDetectedMatches = detected;
-            renderImportReviewSheet();
-            return;
-          }
-        }
-      } catch (err) {
-        console.warn('[PARSER] Native backend unavailable, falling back to client-side:', err);
-      }
-
-      // ─── 2. Fallback: In-browser Canvas & Tesseract.js ────────────────────
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const img = new Image();
-        img.onload = async () => {
-          await analyzeScreenshotImage(img);
-        };
-        img.src = event.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-
-    async function analyzeScreenshotImage(img) {
-      const w = img.naturalWidth;
-      const h = img.naturalHeight;
-      const imgCanvas = document.createElement('canvas');
-      imgCanvas.width = w;
-      imgCanvas.height = h;
-      const ctx = imgCanvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-
-      const fullImageData = ctx.getImageData(0, 0, w, h);
-      const imgBytes = fullImageData.data;
-
-      const grayAt = (px, py) => {
-        const idx = (py * w + px) * 4;
-        return 0.299 * imgBytes[idx] + 0.587 * imgBytes[idx + 1] + 0.114 * imgBytes[idx + 2];
-      };
-
-      const rgbAt = (px, py) => {
-        const idx = (py * w + px) * 4;
-        return [imgBytes[idx], imgBytes[idx + 1], imgBytes[idx + 2]];
-      };
-
-      if (importLoadingSubtitle) {
-        importLoadingSubtitle.textContent = 'Detecting match rows & dividers...';
-      }
-
-      // ─── 1. Detect Bottom Navigation Bar ────────────────────────────────
-      let bottomBoundary = h;
-      for (let y = h - 1; y >= Math.round(h * 0.75); y--) {
-        let rSum = 0, gSum = 0, bSum = 0, samples = 0;
-        for (let x = Math.round(w * 0.1); x < Math.round(w * 0.9); x += 12) {
-          const [r, g, b] = rgbAt(x, y);
-          rSum += r; gSum += g; bSum += b;
-          samples++;
-        }
-        const avgR = rSum / samples;
-        const avgG = gSum / samples;
-        const avgB = bSum / samples;
-
-        // Detect purple or dark bottom nav bar
-        if ((avgG < 90 && (avgR > 65 || avgB > 65)) || (avgR < 50 && avgG < 50 && avgB < 50)) {
-          bottomBoundary = y;
-        }
-      }
-
-      // ─── 2. Scan for Divider Lines across middle/right column ──────────
-      const xStart = Math.round(w * 0.25);
-      const xEnd = Math.round(w * 0.95);
-      const stepX = 4;
-      const numSamples = Math.floor((xEnd - xStart) / stepX);
-
-      const rawCandidates = [];
-      const scanStart = Math.round(h * 0.08);
-      const scanEnd = bottomBoundary - 15;
-
-      for (let y = scanStart; y < scanEnd; y++) {
-        let sum = 0;
-        for (let x = xStart; x < xEnd; x += stepX) {
-          sum += grayAt(x, y);
-        }
-        const mean = sum / numSamples;
-        let sumSqDiff = 0;
-        for (let x = xStart; x < xEnd; x += stepX) {
-          const diff = grayAt(x, y) - mean;
-          sumSqDiff += diff * diff;
-        }
-        const std = Math.sqrt(sumSqDiff / numSamples);
-
-        if (std < 5.0 && mean >= 235 && mean <= 252) {
-          let aboveSum = 0, belowSum = 0, edgeSamples = 0;
-          for (let x = xStart; x < xEnd; x += stepX * 2) {
-            aboveSum += grayAt(x, Math.max(0, y - 2));
-            belowSum += grayAt(x, Math.min(h - 1, y + 2));
-            edgeSamples++;
-          }
-          const aboveMean = aboveSum / edgeSamples;
-          const belowMean = belowSum / edgeSamples;
-          const diffAbove = aboveMean - mean;
-          const diffBelow = belowMean - mean;
-
-          // A true divider hairline must be bounded by brighter whitespace on BOTH sides
-          if (diffAbove >= 1.5 && diffBelow >= 1.5) {
-            rawCandidates.push({ y, contrast: diffAbove + diffBelow, std });
-          }
-        }
-      }
-
-      // Group nearby candidates within 20px, keeping highest contrast
-      const clustered = [];
-      for (const c of rawCandidates) {
-        if (clustered.length === 0 || c.y > clustered[clustered.length - 1].y + 20) {
-          clustered.push(c);
-        } else if (c.contrast > clustered[clustered.length - 1].contrast) {
-          clustered[clustered.length - 1] = c;
-        }
-      }
-
-      // Enforce minimum distance between match rows (>= 18% of width)
-      const minRowDist = Math.round(w * 0.18);
-      const filteredDividers = [];
-      for (const c of clustered) {
-        if (filteredDividers.length === 0 || c.y - filteredDividers[filteredDividers.length - 1].y >= minRowDist) {
-          filteredDividers.push(c);
-        } else if (c.contrast > filteredDividers[filteredDividers.length - 1].contrast) {
-          filteredDividers[filteredDividers.length - 1] = c;
-        }
-      }
-
-      const clusteredDividers = filteredDividers.map(c => c.y);
-
-      // If the space between last divider and bottom boundary is a full row, append boundary
-      if (clusteredDividers.length > 0 && (bottomBoundary - clusteredDividers[clusteredDividers.length - 1]) >= Math.round(w * 0.20)) {
-        clusteredDividers.push(bottomBoundary);
-      }
-      console.log('[DEBUG_PARSER] clusteredDividers:', JSON.stringify(clusteredDividers), 'bottomBoundary:', bottomBoundary);
-
-      // ─── 3. Filter Valid Match Rows ─────────────────────────────────────
-      const validRows = [];
-      for (let i = 0; i < clusteredDividers.length - 1; i++) {
-        const top = clusteredDividers[i];
-        const bot = clusteredDividers[i + 1];
-        const rowH = bot - top;
-
-        // Valid Hinge match row height is between 20% and 40% of image width (excludes partial truncated rows at bottom)
-        if (rowH < Math.round(w * 0.20) || rowH > Math.round(w * 0.40)) {
-          console.log(`[DEBUG_PARSER] Row ${i} (${top}..${bot}, h=${rowH}) rejected by rowH cutoff [${Math.round(w * 0.20)}, ${Math.round(w * 0.40)}]`);
-          continue;
+        if (!resp.ok) {
+          throw new Error(`Server returned HTTP ${resp.status}`);
         }
 
-        // Check row background brightness (reject dark/purple warning banners)
-        let rowBrightSum = 0, rowSampleCount = 0;
-        for (let x = Math.round(w * 0.3); x < Math.round(w * 0.95); x += 10) {
-          const [r, g, b] = rgbAt(x, top + Math.round(rowH / 2));
-          rowBrightSum += (0.299 * r + 0.587 * g + 0.114 * b);
-          rowSampleCount++;
-        }
-        const rowBrightMean = rowBrightSum / rowSampleCount;
-        if (rowBrightMean < 160) {
-          console.log(`[DEBUG_PARSER] Row ${i} rejected by rowBrightMean: ${rowBrightMean}`);
-          continue; // Non-white / banner card
+        const data = await resp.json();
+        if (!data || !data.success || !Array.isArray(data.matches)) {
+          throw new Error(data?.error || 'Invalid response from vision engine');
         }
 
-        // Avatar positioning (centered vertically within row)
-        const avatarSize = Math.round(w * 0.175);
-        const avatarX = Math.round(w * 0.05);
-        let avatarY = top + Math.max(0, Math.round((rowH - avatarSize) / 2));
-        if (avatarY + avatarSize > bottomBoundary) {
-          avatarY = bottomBoundary - avatarSize;
-        }
-
-        // Verify avatar patch has image texture (reject text-only headers like 'Your turn')
-        let patchSum = 0, patchSumSq = 0, patchCount = 0;
-        for (let py = avatarY; py < avatarY + avatarSize; py += 3) {
-          for (let px = avatarX; px < avatarX + avatarSize; px += 3) {
-            const g = grayAt(px, py);
-            patchSum += g;
-            patchSumSq += g * g;
-            patchCount++;
-          }
-        }
-        const patchMean = patchSum / patchCount;
-        const patchStd = Math.sqrt(Math.max(0, (patchSumSq / patchCount) - (patchMean * patchMean)));
-
-        console.log(`[DEBUG_PARSER] Row ${i} (${top}..${bot}, h=${rowH}): patchMean=${patchMean.toFixed(1)}, patchStd=${patchStd.toFixed(1)}`);
-        if (patchStd > 14 && patchMean < 252) {
-          validRows.push({
-            top,
-            bot,
-            rowH,
-            avatarX,
-            avatarY,
-            avatarSize
-          });
-        } else {
-          console.log(`[DEBUG_PARSER] Row ${i} rejected by avatar patch (patchStd=${patchStd}, patchMean=${patchMean})`);
-        }
-      }
-
-      // Fallback: if no divider lines were detected, use geometry fallback
-      if (validRows.length === 0) {
-        const fallbackAvatarSize = Math.round(w * 0.1731);
-        const fallbackStepY = Math.round(h * 0.11875);
-        for (let y = Math.round(h * 0.10); y + fallbackAvatarSize <= bottomBoundary - 10; y += fallbackStepY) {
-          validRows.push({
-            top: y - 10,
-            bot: y + fallbackAvatarSize + 10,
-            rowH: fallbackStepY,
-            avatarX: Math.round(w * 0.05),
-            avatarY: y,
-            avatarSize: fallbackAvatarSize
-          });
-        }
-      }
-
-      // ─── 4. OCR Worker & Text Extraction ────────────────────────────────
-      if (importLoadingSubtitle) {
-        importLoadingSubtitle.textContent = 'Initializing text recognition...';
-      }
-
-      let worker = null;
-      try {
-        if (window.Tesseract && typeof Tesseract.createWorker === 'function') {
-          const workerPromise = Tesseract.createWorker('eng');
-          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('OCR init timeout')), 4500));
-          worker = await Promise.race([workerPromise, timeoutPromise]);
-          if (worker && typeof worker.setParameters === 'function') {
-            await worker.setParameters({
-              tessedit_pageseg_mode: '7' // Single text line mode: stops hallucinations
-            });
-          }
-        }
-      } catch (err) {
-        console.warn('Tesseract worker initialization skipped/timed out:', err);
-        worker = null;
-      }
-
-      const detected = [];
-      let rowIndex = 0;
-
-      for (const row of validRows) {
-        rowIndex++;
-        if (importLoadingSubtitle) {
-          importLoadingSubtitle.textContent = `Analyzing match ${rowIndex} of ${validRows.length}...`;
-        }
-
-        // A. Circular Avatar Crop & Visual Hash
-        const avatarUrl = getCircularAvatarDataUrl(imgCanvas, row.avatarX, row.avatarY, row.avatarSize);
-        const avatarHash = getAvatarHash(imgCanvas, row.avatarX, row.avatarY, row.avatarSize);
-
-        // B. Dynamic Name Line Isolation (strictly cut off before purple hearts/icons)
-        const nameX = row.avatarX + row.avatarSize + Math.round(w * 0.015);
-        const searchW = Math.round(w * 0.38);
-        const searchH = Math.round(row.rowH * 0.75);
-
-        // Scan row for bold black text (brightness < 130, neutral saturation to avoid purple heart/badge)
-        let startTextX = -1;
-        let endTextX = searchW;
-        let whiteGap = 0;
-
-        for (let dx = 0; dx < searchW; dx++) {
-          let hasDarkPixel = false;
-          for (let dy = 0; dy < searchH; dy++) {
-            const [r, g, b] = rgbAt(nameX + dx, row.top + dy);
-            const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
-            const isPurple = Math.abs(r - b) > 25 && b > r * 0.8;
-            if (brightness < 130 && !isPurple) {
-              hasDarkPixel = true;
+        console.log('[PARSER] Using native Apple Vision response:', data);
+        const detected = [];
+        let rIdx = 0;
+        for (const m of data.matches) {
+          rIdx++;
+          let detName = m.name;
+          const avHash = m.avatarHash;
+          let isDuplicate = false;
+          for (const existing of matchesData) {
+            const nameMatches = existing.name.toLowerCase() === detName.toLowerCase();
+            const dist = (existing.hash && avHash) ? hammingDistance(existing.hash, avHash) : 64;
+            if (dist <= 10 || (nameMatches && dist <= 16)) {
+              isDuplicate = true;
+              if (dist <= 6) detName = existing.name;
               break;
             }
           }
-
-          if (hasDarkPixel) {
-            if (startTextX === -1) {
-              startTextX = Math.max(0, dx - 2);
-            }
-            whiteGap = 0;
-          } else if (startTextX !== -1) {
-            whiteGap++;
-            // Gap of >= 7px marks end of name before badge/heart icons
-            if (whiteGap >= 7) {
-              endTextX = dx - whiteGap + 2;
-              break;
-            }
-          }
+          detected.push({
+            id: `det_${rIdx}_${Date.now()}`,
+            name: detName,
+            image: m.avatar,
+            hash: avHash,
+            isDuplicate: isDuplicate,
+            checked: !isDuplicate
+          });
         }
 
-        if (startTextX === -1) {
-          startTextX = 0;
-          endTextX = Math.round(w * 0.25);
-        }
+        stagedDetectedMatches = detected;
+        renderImportReviewSheet();
 
-        // Find vertical bounds of text within [startTextX, endTextX]
-        let minTextY = searchH;
-        let maxTextY = 0;
-        for (let dy = 0; dy < searchH; dy++) {
-          for (let dx = startTextX; dx < endTextX; dx++) {
-            const [r, g, b] = rgbAt(nameX + dx, row.top + dy);
-            const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
-            const isPurple = Math.abs(r - b) > 25 && b > r * 0.8;
-            if (brightness < 130 && !isPurple) {
-              if (dy < minTextY) minTextY = dy;
-              if (dy > maxTextY) maxTextY = dy;
-            }
-          }
-        }
-
-        if (maxTextY <= minTextY) {
-          minTextY = Math.round(row.rowH * 0.15);
-          maxTextY = Math.round(row.rowH * 0.50);
-        }
-
-        const actualMinY = Math.max(0, minTextY - 4);
-        const actualMaxY = Math.min(row.rowH, maxTextY + 5);
-        const textH = actualMaxY - actualMinY;
-        const textW = Math.max(20, endTextX - startTextX);
-
-        const cropX = nameX + startTextX;
-        const cropY = row.top + actualMinY;
-
-        const scale = 3;
-        const pad = 24;
-        const nameCanvas = document.createElement('canvas');
-        nameCanvas.width = textW * scale + pad * 2;
-        nameCanvas.height = textH * scale + pad * 2;
-        const nameCtx = nameCanvas.getContext('2d');
-        nameCtx.fillStyle = '#ffffff';
-        nameCtx.fillRect(0, 0, nameCanvas.width, nameCanvas.height);
-        nameCtx.imageSmoothingEnabled = true;
-        nameCtx.imageSmoothingQuality = 'high';
-        nameCtx.drawImage(imgCanvas, cropX, cropY, textW, textH, pad, pad, textW * scale, textH * scale);
-
-        let detectedName = '';
-        if (worker) {
-          try {
-            const recognizePromise = worker.recognize(nameCanvas);
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Row OCR timeout')), 2200));
-            const res = await Promise.race([recognizePromise, timeoutPromise]);
-            const lines = (res.data.text || '').split('\n');
-            for (const line of lines) {
-              const words = line.split(/\s+/);
-              for (const wd of words) {
-                const clean = wd.replace(/[^a-zA-Z]/g, '');
-                if (clean.length >= 2) {
-                  detectedName = clean.charAt(0).toUpperCase() + clean.slice(1).toLowerCase();
-                  break;
-                }
-              }
-              if (detectedName) break;
-            }
-          } catch (e) {
-            console.warn('OCR error on row', rowIndex, e);
-          }
-        }
-
-        if (!detectedName) {
-          detectedName = `Match ${rowIndex}`;
-        }
-
-        // C. Dual-key Deduplication: Check Name & Avatar Hash
-        let isDuplicate = false;
-        for (const existing of matchesData) {
-          const nameMatches = existing.name.toLowerCase() === detectedName.toLowerCase();
-          const dist = (existing.hash && avatarHash) ? hammingDistance(existing.hash, avatarHash) : 64;
-
-          if (dist <= 10 || (nameMatches && dist <= 16)) {
-            isDuplicate = true;
-            if (dist <= 6) detectedName = existing.name;
-            break;
-          }
-        }
-
-        detected.push({
-          id: `det_${rowIndex}_${Date.now()}`,
-          name: detectedName,
-          image: avatarUrl,
-          hash: avatarHash,
-          isDuplicate: isDuplicate,
-          checked: !isDuplicate
-        });
+      } catch (err) {
+        console.error('[PARSER] Native backend failed or unreachable:', err);
+        closeImportModal();
+        const isOffline = err.name === 'AbortError' || err.message.includes('Failed to fetch') || err.message.includes('NetworkError');
+        const errMsg = isOffline
+          ? 'Backend server unreachable. Make sure your Mac server & tunnel are running (python3 server.py --tunnel).'
+          : `Screenshot import error: ${err.message}`;
+        showToast(errMsg, 'error', 5500);
       }
-
-      if (worker) {
-        try {
-          await worker.terminate();
-        } catch (e) {}
-      }
-
-      stagedDetectedMatches = detected;
-      renderImportReviewSheet();
     }
 
     function renderImportReviewSheet() {
