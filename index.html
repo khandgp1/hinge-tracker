@@ -1427,6 +1427,30 @@
   </nav>
 
   <script>
+    // ─── Firebase Config & Database ───────────────────────────────────────────
+    const firebaseConfig = {
+      apiKey: "AIzaSyBMojXGVQzWFrj7zQ6i28btmljMSj7e6Iw",
+      authDomain: "hinge-tracker-coach.firebaseapp.com",
+      projectId: "hinge-tracker-coach",
+      storageBucket: "hinge-tracker-coach.firebasestorage.app",
+      messagingSenderId: "309539761940",
+      appId: "1:309539761940:web:b26fa680be0379defd9c01"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // Enable Firestore offline persistence for instant launches & cached access
+    db.enablePersistence({ synchronizeTabs: true }).catch((err) => {
+      if (err.code === 'failed-precondition') {
+        console.warn('[Firestore] Multi-tab persistence limited to primary tab');
+      } else if (err.code === 'unimplemented') {
+        console.warn('[Firestore] Browser does not support offline persistence');
+      } else {
+        console.warn('[Firestore] Persistence warning:', err);
+      }
+    });
+
     const defaultMatchesData = [
       {
         name: "Divya",
@@ -1479,18 +1503,7 @@
       }
     ];
 
-    function loadSavedMatches() {
-      try {
-        const saved = localStorage.getItem('hinge_custom_matches');
-        return saved ? JSON.parse(saved) : [];
-      } catch (e) {
-        console.warn('Failed to load custom matches:', e);
-        return [];
-      }
-    }
-
-    let customMatches = loadSavedMatches();
-    let matchesData = [...customMatches, ...defaultMatchesData];
+    let matchesData = [...defaultMatchesData];
 
     const aubreyChatData = [
 
@@ -1564,20 +1577,6 @@
         status: "Sent"
       }
     ];
-
-    // ─── Firebase Config ──────────────────────────────────────────────────────
-    // Your web app's Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyBMojXGVQzWFrj7zQ6i28btmljMSj7e6Iw",
-      authDomain: "hinge-tracker-coach.firebaseapp.com",
-      projectId: "hinge-tracker-coach",
-      storageBucket: "hinge-tracker-coach.firebasestorage.app",
-      messagingSenderId: "309539761940",
-      appId: "1:309539761940:web:b26fa680be0379defd9c01"
-    };
-
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
 
     // ─── Role Detection ───────────────────────────────────────────────────────
     const urlRole = new URLSearchParams(window.location.search).get('role');
@@ -1852,6 +1851,10 @@
     const expertInput = document.getElementById('expertInput');
 
     let scrollRestoreY = 0;
+    const tabScrollPositions = {
+      matches: 0,
+      profile: 0
+    };
 
     function closeChat() {
       if (!chatOverlay) return;
@@ -1861,15 +1864,59 @@
       document.body.classList.remove('chat-open');
       document.body.style.top = '';
       window.scrollTo(0, scrollRestoreY);
-      sheetState = 'collapsed';
       const sheet = document.getElementById('expertBottomSheet');
       if (sheet) sheet.className = 'expert-sheet collapsed';
     }
 
-    // Initial render of matches list
+    // Initial render of matches list (offline baseline)
     renderMatchesList();
 
-    // ─── Screenshot Match Importer ──────────────────────────────────────
+    // ─── Firestore Matches Real-Time Sync & Seeding ───────────────────────────
+    async function initFirestoreMatches() {
+      try {
+        const matchesCol = db.collection('matches');
+
+        // Check if collection has any matches; if empty, seed baseline defaults
+        const snap = await matchesCol.limit(1).get();
+        if (snap.empty) {
+          console.log('[Firestore] Seeding default matches...');
+          const batch = db.batch();
+          const baseTime = Date.now();
+          defaultMatchesData.forEach((m, idx) => {
+            const docRef = matchesCol.doc();
+            // Stagger timestamps so top matches (Divya, Aubrey) appear with newest timestamps
+            const staggeredDate = new Date(baseTime - (idx * 60000));
+            batch.set(docRef, {
+              name: m.name,
+              preview: m.preview,
+              isMatchedNotice: m.isMatchedNotice,
+              image: m.image,
+              hash: m.hash || '',
+              createdAt: firebase.firestore.Timestamp.fromDate(staggeredDate)
+            });
+          });
+          await batch.commit();
+          console.log('[Firestore] Default matches seeded successfully.');
+        }
+
+        // Attach live listener for all updates across devices
+        matchesCol.orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
+          if (!snapshot.empty) {
+            matchesData = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            }));
+            renderMatchesList();
+          }
+        }, (err) => {
+          console.warn('[Firestore] Error in matches real-time listener:', err);
+        });
+      } catch (err) {
+        console.warn('[Firestore] Error initializing Firestore matches:', err);
+      }
+    }
+
+    initFirestoreMatches();
     const importMatchesBtn = document.getElementById('importMatchesBtn');
     const matchesFileInput = document.getElementById('matchesFileInput');
     const importReviewModal = document.getElementById('importReviewModal');
@@ -2109,34 +2156,47 @@
     }
 
     if (importConfirmBtn) {
-      importConfirmBtn.addEventListener('click', () => {
+      importConfirmBtn.addEventListener('click', async () => {
         const toAdd = stagedDetectedMatches.filter(m => !m.isDuplicate && m.checked);
         if (toAdd.length === 0) return;
 
-        const newFormattedMatches = toAdd.map(m => ({
-          name: m.name,
-          preview: `You matched with ${m.name}`,
-          isMatchedNotice: true,
-          image: m.image,
-          hash: m.hash
-        }));
+        importConfirmBtn.disabled = true;
+        importConfirmBtn.textContent = 'Saving to Cloud...';
 
-        customMatches = [...newFormattedMatches, ...customMatches];
         try {
-          localStorage.setItem('hinge_custom_matches', JSON.stringify(customMatches));
-        } catch (e) {
-          console.warn('Could not save to localStorage:', e);
-        }
+          const batch = db.batch();
+          const now = Date.now();
+          // Stagger slightly so top items retain top order in descending sort
+          toAdd.forEach((m, idx) => {
+            const docRef = db.collection('matches').doc();
+            const matchTimestamp = new Date(now + ((toAdd.length - idx) * 1000));
+            batch.set(docRef, {
+              name: m.name,
+              preview: `You matched with ${m.name}`,
+              isMatchedNotice: true,
+              image: m.image,
+              hash: m.hash || '',
+              createdAt: firebase.firestore.Timestamp.fromDate(matchTimestamp)
+            });
+          });
 
-        matchesData = [...customMatches, ...defaultMatchesData];
-        renderMatchesList();
-        closeImportModal();
+          await batch.commit();
+          closeImportModal();
+        } catch (err) {
+          console.error('[Firestore] Error saving imported matches:', err);
+          alert('Failed to save matches to cloud database. Please try again.');
+        } finally {
+          importConfirmBtn.disabled = false;
+          updateConfirmButton();
+        }
       });
     }
 
     // Expose for testing & manual trigger
     window.processScreenshotFile = processScreenshotFile;
-    window.analyzeScreenshotImage = analyzeScreenshotImage;
+    if (typeof analyzeScreenshotImage !== 'undefined') {
+      window.analyzeScreenshotImage = analyzeScreenshotImage;
+    }
     window.runTestParser = async function() {
       try {
         console.log('[TEST_PARSER] Starting test parse...');
@@ -2228,10 +2288,6 @@
 
     // ─── Tab Navigation (Matches & Profile) ─────────────────────────────────
     let currentTab = 'matches';
-    const tabScrollPositions = {
-      matches: 0,
-      profile: 0
-    };
 
     function switchTab(tab) {
       if (currentTab === tab) return;
