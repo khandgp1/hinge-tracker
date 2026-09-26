@@ -1748,12 +1748,20 @@
     }
 
     function hammingDistance(h1, h2) {
-      if (!h1 || !h2 || h1.length !== h2.length) return 64;
-      let dist = 0;
-      for (let i = 0; i < h1.length; i++) {
-        if (h1[i] !== h2[i]) dist++;
+      if (!h1 || !h2) return 64;
+      try {
+        const b1 = BigInt(h1.length === 16 ? '0x' + h1 : (h1.startsWith('0b') ? h1 : '0b' + h1));
+        const b2 = BigInt(h2.length === 16 ? '0x' + h2 : (h2.startsWith('0b') ? h2 : '0b' + h2));
+        const xor = b1 ^ b2;
+        return xor.toString(2).replace(/0/g, '').length;
+      } catch (e) {
+        let dist = 0;
+        const len = Math.min(h1.length, h2.length);
+        for (let i = 0; i < len; i++) {
+          if (h1[i] !== h2[i]) dist++;
+        }
+        return dist + Math.abs(h1.length - h2.length);
       }
-      return dist;
     }
 
     function getCircularAvatarDataUrl(imgCanvas, x, y, size) {
@@ -2036,11 +2044,14 @@
           const avHash = m.avatarHash;
           let isDuplicate = false;
           for (const existing of matchesData) {
-            const nameMatches = existing.name.toLowerCase() === detName.toLowerCase();
+            const nameMatches = existing.name.toLowerCase().trim() === detName.toLowerCase().trim();
             const dist = (existing.hash && avHash) ? hammingDistance(existing.hash, avHash) : 64;
-            if (dist <= 10 || (nameMatches && dist <= 16)) {
+            // Duplicate if:
+            // 1. Same name and similar avatar photo (<= 12 bit differences out of 64)
+            // 2. OR near-identical avatar photo (<= 3 bit differences) to catch re-uploads with OCR name typos
+            if ((nameMatches && dist <= 12) || dist <= 3) {
               isDuplicate = true;
-              if (dist <= 6) detName = existing.name;
+              detName = existing.name;
               break;
             }
           }
