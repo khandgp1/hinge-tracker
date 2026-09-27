@@ -1721,132 +1721,7 @@
       }
     });
 
-    const defaultMatchesData = [
-      {
-        name: "Divya",
-        preview: "You matched with Divya",
-        isMatchedNotice: true,
-        image: "assets/divya.jpg",
-        hash: "1111111111100011111000000000100110000000100000001000001011111011"
-      },
-      {
-        name: "Aubrey",
-        preview: "ummmmmmm how's those eyes are gor",
-        isMatchedNotice: false,
-        image: "assets/aubrey.jpg",
-        hash: "1111111111111111100011111000100110011101100000011000000111000011"
-      },
-      {
-        name: "Sydney",
-        preview: "someone seems chill af",
-        isMatchedNotice: false,
-        image: "assets/sydney.jpg",
-        hash: "1111111111011111100000001000000000000000100000001100000111100011"
-      },
-      {
-        name: "Isadora",
-        preview: "You matched with Isadora",
-        isMatchedNotice: true,
-        image: "assets/isadora.jpg",
-        hash: "1100000110000000110000001100000111011111100111001001100111111111"
-      },
-      {
-        name: "Apshara",
-        preview: "if we lockin rn, we can be arguing at the",
-        isMatchedNotice: false,
-        image: "assets/apshara.jpg",
-        hash: "1101111110000111100001111000011110000111100001111000001111100011"
-      },
-      {
-        name: "Brianna",
-        preview: "who gave you such good taste ??",
-        isMatchedNotice: false,
-        image: "assets/brianna.jpg",
-        hash: "1100001110000110100000001001110100000101100000111000001111110111"
-      },
-      {
-        name: "Mital",
-        preview: "ahh good, i'm gonna be trouble. you still",
-        isMatchedNotice: false,
-        image: "assets/mital.jpg",
-        hash: "1100000110000000100110000001100010010000101100001110000111111111"
-      }
-    ];
-
     let matchesData = [];
-
-    const aubreyChatData = [
-
-      {
-        type: "timestamp",
-        text: "Sat, Aug 8 3:23 PM"
-      },
-      {
-        type: "liked_photo",
-        image: "assets/aubrey_liked_photo.png"
-      },
-      {
-        type: "timestamp",
-        text: "Mon, Aug 10 10:58 AM"
-      },
-      {
-        type: "received",
-        text: "Start the chat with Aubrey",
-        showAvatar: false
-      },
-      {
-        type: "timestamp",
-        text: "Mon, Aug 10 11:38 AM"
-      },
-      {
-        type: "sent",
-        text: "according to YouTube you gotta message me first"
-      },
-      {
-        type: "received",
-        text: "Hahahahaha is that the protocol?! I'm new here",
-        showAvatar: true
-      },
-      {
-        type: "sent",
-        text: "yep and i'm new here too :)"
-      },
-      {
-        type: "sent",
-        text: "step 2 incoming when i get off later"
-      },
-      {
-        type: "received",
-        text: "Omg what's step 2 I'm on the edge of my seat!!",
-        showAvatar: true
-      },
-      {
-        type: "sent",
-        text: "someone's eager"
-      },
-      {
-        type: "received",
-        text: "Eager is my middle name",
-        showAvatar: true
-      },
-      {
-        type: "timestamp",
-        text: "Tue, Aug 11 12:02 AM"
-      },
-      {
-        type: "sent",
-        text: "I like what I'm hearing"
-      },
-      {
-        type: "sent",
-        text: "step 2 is somethin a lil flirty but real"
-      },
-      {
-        type: "sent",
-        text: "ummmmmmm how's those eyes are gonna get you in trouble. text me, i'm taking you out 240 688 9865",
-        status: "Sent"
-      }
-    ];
 
     // ─── Role Detection ───────────────────────────────────────────────────────
     const urlRole = new URLSearchParams(window.location.search).get('role');
@@ -2023,9 +1898,6 @@
       }
     }
 
-    function renderAubreyChat() {
-      renderChatMessages(aubreyChatData, { name: 'Aubrey', image: 'assets/aubrey.jpg' });
-    }
 
     // ─── Deduplication & Avatar Hashing Utilities ────────────────────────
     function getAvatarHash(canvas, x, y, size) {
