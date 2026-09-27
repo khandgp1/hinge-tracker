@@ -115,30 +115,45 @@ def detect_static_margins(
     Detect static top header rows and bottom footer rows that remain identical across frames.
     Returns (top_crop_pixels, bottom_crop_pixels).
     """
-    h, w = img1.shape[:2]
     gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY) if len(img1.shape) == 3 else img1
     gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY) if len(img2.shape) == 3 else img2
 
-    diff = np.abs(gray1.astype(np.int16) - gray2.astype(np.int16))
+    h = min(gray1.shape[0], gray2.shape[0])
+    w = min(gray1.shape[1], gray2.shape[1])
+    g1 = gray1[:h, :w]
+    g2 = gray2[:h, :w]
+
+    diff = np.abs(g1.astype(np.int16) - g2.astype(np.int16))
     row_diffs = np.mean(diff, axis=1)
 
     # Check top header (from row 0 down)
+    # Search for where sustained scrolling content differences begin (> 6.0 for 4+ consecutive rows),
+    # allowing transient changes (like 1-minute clock shifts or battery percentage in the status bar)
     max_top_search = int(h * max_header_pct)
     top_crop = 0
+    sustained_top = 0
     for y in range(max_top_search):
-        if row_diffs[y] < 3.0:  # virtually unchanged pixel row
-            top_crop = y + 1
+        if row_diffs[y] > 6.0:
+            sustained_top += 1
+            if sustained_top >= 4:
+                top_crop = max(0, y - 4)
+                break
         else:
-            break
+            sustained_top = 0
 
     # Check bottom footer (from row h-1 up)
+    # Allows localized artifacts like cursor blinking in the text input box
     max_bottom_search = int(h * max_footer_pct)
     bottom_crop = 0
+    sustained_bottom = 0
     for y in range(h - 1, h - 1 - max_bottom_search, -1):
-        if row_diffs[y] < 3.0:
-            bottom_crop += 1
+        if row_diffs[y] > 6.0:
+            sustained_bottom += 1
+            if sustained_bottom >= 4:
+                bottom_crop = max(0, (h - 1 - y) - 4)
+                break
         else:
-            break
+            sustained_bottom = 0
 
     return top_crop, bottom_crop
 
@@ -336,6 +351,15 @@ def stitch_sequence(
         final_image = canvas
 
     return final_image
+
+
+def stitch_chat_frames(images: List[np.ndarray]) -> np.ndarray:
+    """Stitch a sequence of chat screenshot frames into one continuous chat image."""
+    if not images:
+        raise ValueError("No images provided for chat stitching.")
+    if len(images) == 1:
+        return images[0]
+    return stitch_sequence(images, keep_header=False, keep_footer=False, blend_height=20)
 
 
 def main():

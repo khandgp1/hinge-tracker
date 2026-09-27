@@ -437,6 +437,11 @@
       overflow: visible;
     }
 
+    .liked-photo-container.received {
+      margin: 8px auto 22px auto;
+      max-width: 80%;
+    }
+
     .liked-photo-img {
       width: 100%;
       height: auto;
@@ -454,13 +459,74 @@
       font-style: italic;
       font-size: 14px;
       padding: 12px 24px;
-      min-width: 228px;
+      min-width: 140px;
+      max-width: 90%;
       text-align: center;
       border-radius: 22px;
       box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
-      line-height: 1.2;
-      white-space: nowrap;
+      line-height: 1.25;
+      word-break: break-word;
       z-index: 5;
+    }
+
+    .liked-photo-pill-wrapper.received {
+      position: absolute;
+      bottom: 0px;
+      left: -30px;
+      display: flex;
+      align-items: center;
+      z-index: 5;
+      max-width: 100%;
+    }
+
+    .liked-photo-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin-right: -16px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+      background: #e5e5ea;
+      flex-shrink: 0;
+      z-index: 6;
+      position: relative;
+    }
+
+    .liked-photo-pill.received {
+      position: relative;
+      bottom: auto;
+      right: auto;
+      left: auto;
+      padding: 0 38px 0 26px;
+      height: 45px;
+      min-width: 220px;
+      display: inline-flex;
+      align-items: center;
+      border-radius: 26px;
+      background: #f7ebe6;
+      text-align: left;
+      font-size: 14px;
+      line-height: 1.2;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+      z-index: 5;
+    }
+
+    /* System Prompts */
+    .chat-system-prompt-row {
+      display: flex;
+      justify-content: center;
+      margin: 14px 0 16px;
+    }
+
+    .chat-system-prompt-pill {
+      background: #eeeeee;
+      color: #1c1c1e;
+      font-size: 13.5px;
+      font-weight: 500;
+      padding: 8px 18px;
+      border-radius: 18px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      text-align: center;
     }
 
     /* Feed & Message Items */
@@ -510,6 +576,7 @@
       max-width: 80%;
       letter-spacing: -0.01em;
       word-break: break-word;
+      white-space: pre-line;
     }
 
     .bubble.sent-bubble {
@@ -1019,7 +1086,9 @@
     }
 
     @keyframes spin {
-      to { transform: rotate(360deg); }
+      to {
+        transform: rotate(360deg);
+      }
     }
 
     .import-loading-title {
@@ -1193,6 +1262,131 @@
       cursor: not-allowed;
     }
 
+    .chat-header-action-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      color: #000000;
+      transition: background 0.15s ease;
+      width: 34px;
+      height: 34px;
+    }
+
+    .chat-header-action-btn:active {
+      background: rgba(0, 0, 0, 0.08);
+    }
+
+    /* ─── Chat Import Review Modal & Empty State Styles ───────────────── */
+    .chat-empty-state {
+      padding: 48px 20px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .chat-empty-avatar {
+      width: 82px;
+      height: 82px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin-bottom: 14px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+    }
+
+    .chat-empty-title {
+      font-size: 14.5px;
+      font-weight: 600;
+      color: #8e8e93;
+      margin-bottom: 18px;
+    }
+
+    .chat-empty-bubble {
+      margin: 0 auto 22px;
+      display: inline-block;
+      max-width: 84%;
+      text-align: left;
+      padding: 13px 18px;
+      font-size: 15.5px;
+      line-height: 1.35;
+      background: #efefef;
+      color: #000000;
+      border-radius: 20px;
+    }
+
+    .chat-upload-action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #701A51;
+      color: #ffffff;
+      border: none;
+      border-radius: 24px;
+      padding: 12px 22px;
+      font-size: 14.5px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow: 0 4px 12px rgba(112, 26, 81, 0.25);
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+
+    .chat-upload-action-btn:active {
+      transform: scale(0.97);
+      background: #5b1442;
+    }
+
+    /* Floating In-Chat Progress Pill */
+    .chat-upload-pill {
+      position: fixed;
+      top: 66px;
+      left: 50%;
+      transform: translateX(-50%) translateY(0);
+      background: rgba(28, 28, 30, 0.94);
+      color: #ffffff;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
+      z-index: 300;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+    }
+
+    .chat-upload-pill.fade-out {
+      opacity: 0;
+      transform: translateX(-50%) translateY(-10px);
+    }
+
+    .chat-pill-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.25);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: pillSpin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes pillSpin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
     /* Floating Toast Notification */
     .app-toast {
       position: fixed;
@@ -1245,8 +1439,10 @@
     <div class="sticky-header-wrapper">
       <header class="header">
         <h1 class="header-title">Matches</h1>
-        <button id="importMatchesBtn" class="header-action-btn" aria-label="Import Matches" title="Import from Screenshot">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+        <button id="importMatchesBtn" class="header-action-btn" aria-label="Import Matches"
+          title="Import from Screenshot">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2.3"
+            stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
@@ -1318,7 +1514,22 @@
         </svg>
       </button>
       <span class="chat-title">Aubrey</span>
-      <div class="chat-header-spacer"></div>
+      <button id="chatUploadBtn" class="chat-header-action-btn" aria-label="Upload Chat Screenshots"
+        title="Upload Chat Screenshots">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2.2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+          <circle cx="8.5" cy="8.5" r="1.5" />
+          <polyline points="21 15 16 10 5 21" />
+        </svg>
+      </button>
+      <input type="file" id="chatFileInput" accept="image/*" multiple style="display: none;">
+    </div>
+
+    <!-- Floating In-Chat Progress Pill for Automated Chat Ingestion -->
+    <div id="chatUploadProgressPill" class="chat-upload-pill" style="display: none;">
+      <div class="chat-pill-spinner"></div>
+      <span id="chatPillText">Stitching & adding messages...</span>
     </div>
 
     <div id="chatBody" class="chat-body">
@@ -1676,11 +1887,14 @@
       input.style.height = '';
     }
 
-    function renderAubreyChat() {
+    function renderChatMessages(messages, match) {
       const feed = document.getElementById('chatFeed');
       if (!feed) return;
 
-      feed.innerHTML = aubreyChatData.map(item => {
+      const avatarSrc = (match && match.image) ? match.image : 'assets/aubrey.jpg';
+      const matchName = (match && match.name) ? match.name : 'Aubrey';
+
+      feed.innerHTML = messages.map(item => {
         if (item.type === 'banner') {
           return `
             <div class="priority-banner-card">
@@ -1690,14 +1904,35 @@
                 </svg>
               </div>
               <button class="priority-banner-close" aria-label="Close" onclick="this.parentElement.remove()">✕</button>
-              <div class="priority-banner-title">${item.title}</div>
+              <div class="priority-banner-title">${item.title || item.text}</div>
             </div>
           `;
         } else if (item.type === 'liked_photo') {
+          const isReceived = item.sender === 'received' || (item.text && item.text.toLowerCase().includes('liked your'));
+          if (isReceived) {
+            const pillText = item.text || 'Liked your photo';
+            return `
+              <div class="liked-photo-container received">
+                <img src="${item.image}" alt="Liked Photo" class="liked-photo-img">
+                <div class="liked-photo-pill-wrapper received">
+                  <img src="${avatarSrc}" alt="${matchName}" class="liked-photo-avatar">
+                  <div class="liked-photo-pill received">${pillText}</div>
+                </div>
+              </div>
+            `;
+          } else {
+            const pillText = item.text || `You liked ${matchName}'s photo.`;
+            return `
+              <div class="liked-photo-container sent">
+                <img src="${item.image}" alt="Liked Photo" class="liked-photo-img">
+                <div class="liked-photo-pill">${pillText}</div>
+              </div>
+            `;
+          }
+        } else if (item.type === 'system_prompt') {
           return `
-            <div class="liked-photo-container">
-              <img src="${item.image}" alt="Liked Photo" class="liked-photo-img">
-              <div class="liked-photo-pill">You liked Aubrey's photo.</div>
+            <div class="chat-system-prompt-row">
+              <div class="chat-system-prompt-pill">${item.text}</div>
             </div>
           `;
         } else if (item.type === 'timestamp') {
@@ -1715,13 +1950,22 @@
         } else if (item.type === 'received') {
           return `
             <div class="chat-message-row received">
-              ${item.showAvatar ? `<img src="assets/aubrey.jpg" alt="Aubrey" class="msg-avatar">` : `<div class="avatar-placeholder"></div>`}
+              ${item.showAvatar ? `<img src="${avatarSrc}" alt="${matchName}" class="msg-avatar">` : `<div class="avatar-placeholder"></div>`}
               <div class="bubble received-bubble">${item.text}</div>
             </div>
           `;
         }
         return '';
       }).join('');
+
+      const chatBody = document.getElementById('chatBody');
+      if (chatBody) {
+        chatBody.scrollTop = chatBody.scrollHeight;
+      }
+    }
+
+    function renderAubreyChat() {
+      renderChatMessages(aubreyChatData, { name: 'Aubrey', image: 'assets/aubrey.jpg' });
     }
 
     // ─── Deduplication & Avatar Hashing Utilities ────────────────────────
@@ -1797,18 +2041,86 @@
       attachMatchRowClickListeners();
     }
 
+    let currentActiveMatch = null;
+    let currentMatchChatUnsubscribe = null;
+    let currentMatchMessages = [];
+
+    function initMatchChatListener(match) {
+      if (currentMatchChatUnsubscribe) {
+        currentMatchChatUnsubscribe();
+        currentMatchChatUnsubscribe = null;
+      }
+      currentActiveMatch = match;
+      currentMatchMessages = [];
+
+      const feedEl = document.getElementById('chatFeed');
+      if (!feedEl) return;
+
+      const chatCol = db.collection('chats').doc(match.name).collection('messages');
+
+      currentMatchChatUnsubscribe = chatCol.orderBy('order', 'asc').onSnapshot(async (snapshot) => {
+        if (snapshot.empty) {
+          // If Aubrey and collection is empty, seed aubreyChatData!
+          if (match.name === 'Aubrey') {
+            console.log('[Firestore] Seeding Aubrey baseline chat...');
+            const batch = db.batch();
+            aubreyChatData.forEach((item, idx) => {
+              const docRef = chatCol.doc();
+              batch.set(docRef, {
+                ...item,
+                order: idx + 1,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+              });
+            });
+            await batch.commit();
+            return;
+          }
+
+          currentMatchMessages = [];
+
+          // Otherwise render empty state
+          feedEl.innerHTML = `
+            <div class="chat-empty-state">
+              <img src="${match.image}" alt="${match.name}" class="chat-empty-avatar">
+              <div class="chat-empty-title">You matched with ${match.name}</div>
+              <div class="chat-empty-bubble">Start the chat with ${match.name}</div>
+              <button class="chat-upload-action-btn" id="emptyStateUploadBtn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                  <circle cx="12" cy="13" r="4"></circle>
+                </svg>
+                Upload Chat Screenshots
+              </button>
+            </div>
+          `;
+          const emptyBtn = document.getElementById('emptyStateUploadBtn');
+          if (emptyBtn) {
+            emptyBtn.onclick = () => {
+              const fileInput = document.getElementById('chatFileInput');
+              if (fileInput) fileInput.click();
+            };
+          }
+          return;
+        }
+
+        currentMatchMessages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderChatMessages(currentMatchMessages, match);
+      }, (err) => {
+        console.warn('[Firestore] Error in chat real-time listener:', err);
+      });
+    }
+
     function openChatForMatch(match) {
       if (!chatOverlay) return;
       scrollRestoreY = window.scrollY || document.documentElement.scrollTop || 0;
       tabScrollPositions.matches = scrollRestoreY;
 
       const titleEl = chatOverlay.querySelector('.chat-title');
-      const feedEl = document.getElementById('chatFeed');
       const sheet = document.getElementById('expertBottomSheet');
 
+      if (titleEl) titleEl.textContent = match.name;
+
       if (match.name === 'Aubrey') {
-        if (titleEl) titleEl.textContent = 'Aubrey';
-        renderAubreyChat();
         initCoachListener();
         sheetState = 'collapsed';
         if (sheet) {
@@ -1816,20 +2128,10 @@
           sheet.className = 'expert-sheet collapsed';
         }
       } else {
-        if (titleEl) titleEl.textContent = match.name;
         if (sheet) sheet.style.display = 'none';
-        if (feedEl) {
-          feedEl.innerHTML = `
-            <div style="padding: 40px 16px; text-align: center;">
-              <img src="${match.image}" alt="${match.name}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 14px; box-shadow: 0 4px 14px rgba(0,0,0,0.1);">
-              <div style="font-size: 14px; font-weight: 600; color: #8e8e93; margin-bottom: 24px;">You matched with ${match.name}</div>
-              <div class="chat-bubble received" style="margin: 0 auto; display: inline-block; max-width: 82%; text-align: left; padding: 13px 18px; font-size: 16px; line-height: 1.35;">
-                Start the chat with ${match.name}
-              </div>
-            </div>
-          `;
-        }
       }
+
+      initMatchChatListener(match);
 
       chatOverlay.classList.remove('sheet-open');
       chatOverlay.classList.add('active');
@@ -1866,6 +2168,11 @@
 
     function closeChat() {
       if (!chatOverlay) return;
+      if (currentMatchChatUnsubscribe) {
+        currentMatchChatUnsubscribe();
+        currentMatchChatUnsubscribe = null;
+      }
+      currentActiveMatch = null;
       chatOverlay.classList.remove('active');
       chatOverlay.classList.remove('sheet-open');
       chatOverlay.style.paddingBottom = '0px';
@@ -1874,6 +2181,181 @@
       window.scrollTo(0, scrollRestoreY);
       const sheet = document.getElementById('expertBottomSheet');
       if (sheet) sheet.className = 'expert-sheet collapsed';
+    }
+
+    // ─── Automated Chat Screenshot Upload & Ingestion Flow ─────────────
+    const chatUploadBtn = document.getElementById('chatUploadBtn');
+    const chatFileInput = document.getElementById('chatFileInput');
+    const chatUploadProgressPill = document.getElementById('chatUploadProgressPill');
+    const chatPillText = document.getElementById('chatPillText');
+
+    function showChatPill(text) {
+      if (!chatUploadProgressPill) return;
+      if (chatPillText) chatPillText.textContent = text;
+      chatUploadProgressPill.classList.remove('fade-out');
+      chatUploadProgressPill.style.display = 'inline-flex';
+    }
+
+    function hideChatPill() {
+      if (!chatUploadProgressPill) return;
+      chatUploadProgressPill.classList.add('fade-out');
+      setTimeout(() => {
+        chatUploadProgressPill.style.display = 'none';
+        chatUploadProgressPill.classList.remove('fade-out');
+      }, 250);
+    }
+
+    if (chatUploadBtn && chatFileInput) {
+      chatUploadBtn.addEventListener('click', () => {
+        chatFileInput.value = '';
+        chatFileInput.click();
+      });
+    }
+
+    if (chatFileInput) {
+      chatFileInput.addEventListener('change', async (e) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+
+        if (!currentActiveMatch) {
+          showToast('Please open a match chat first');
+          return;
+        }
+
+        const loadingMsg = files.length > 1
+          ? `Stitching ${files.length} screenshots & adding...`
+          : 'Analyzing screenshot & adding...';
+        showChatPill(loadingMsg);
+
+        try {
+          const readPromises = files.map(file => {
+            return new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result);
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            });
+          });
+
+          const base64Images = await Promise.all(readPromises);
+
+          const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+          const apiBase = isLocal ? '' : 'https://subplot-sarcastic-yesterday.ngrok-free.dev';
+
+          const res = await fetch(`${apiBase}/api/parse-chat`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'ngrok-skip-browser-warning': 'true'
+            },
+            body: JSON.stringify({
+              matchName: currentActiveMatch ? currentActiveMatch.name : '',
+              images: base64Images
+            })
+          });
+
+          if (!res.ok) {
+            throw new Error(`Server returned HTTP ${res.status}`);
+          }
+
+          const data = await res.json();
+          if (!data.success || !data.messages || data.messages.length === 0) {
+            hideChatPill();
+            showToast('No new messages detected in screenshot');
+            chatFileInput.value = '';
+            return;
+          }
+
+          const parsedMessages = data.messages;
+          const chatCol = db.collection('chats').doc(currentActiveMatch.name).collection('messages');
+
+          let maxOrder = 0;
+          if (currentMatchMessages.length > 0) {
+            maxOrder = Math.max(...currentMatchMessages.map(m => m.order || 0));
+          }
+
+          const normalize = (t) => (t || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const existingTextSet = new Set(currentMatchMessages.map(m => normalize(m.text)));
+
+          const messagesToAdd = parsedMessages.filter(m => {
+            if (m.type === 'liked_photo') {
+              return !currentMatchMessages.some(e => e.type === 'liked_photo');
+            }
+            if (m.type === 'system_prompt') {
+              return !currentMatchMessages.some(e => e.type === 'system_prompt' && normalize(e.text) === normalize(m.text));
+            }
+            if (m.type === 'timestamp') {
+              return !currentMatchMessages.some(e => e.type === 'timestamp' && normalize(e.text) === normalize(m.text));
+            }
+            const norm = normalize(m.text);
+            if (!norm) return false;
+            return !existingTextSet.has(norm);
+          });
+
+          if (messagesToAdd.length === 0) {
+            hideChatPill();
+            showToast('No new messages detected in screenshot');
+            chatFileInput.value = '';
+            return;
+          }
+
+          const batch = db.batch();
+          let orderCounter = maxOrder;
+          let latestText = '';
+
+          messagesToAdd.forEach((item) => {
+            orderCounter++;
+            const docRef = chatCol.doc();
+            const msgData = {
+              order: orderCounter,
+              type: item.type,
+              text: item.text || '',
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            if (item.type === 'liked_photo') {
+              if (item.image) msgData.image = item.image;
+              if (item.sender) msgData.sender = item.sender;
+            }
+            if (item.type === 'sent' && item.status) {
+              msgData.status = item.status;
+            }
+            if (item.type === 'received') {
+              msgData.showAvatar = item.showAvatar !== undefined ? item.showAvatar : true;
+            }
+            batch.set(docRef, msgData);
+
+            if (item.type === 'sent' || item.type === 'received') {
+              latestText = item.text;
+            }
+          });
+
+          if (latestText && currentActiveMatch.id) {
+            const matchDocRef = db.collection('matches').doc(currentActiveMatch.id);
+            batch.update(matchDocRef, {
+              preview: latestText.length > 38 ? latestText.substring(0, 38) + '...' : latestText,
+              isMatchedNotice: false
+            });
+          }
+
+          await batch.commit();
+
+          hideChatPill();
+          showToast(`Added ${messagesToAdd.length} new message${messagesToAdd.length === 1 ? '' : 's'} to chat!`);
+          chatFileInput.value = '';
+
+          setTimeout(() => {
+            if (chatBody) {
+              chatBody.scrollTo({ top: chatBody.scrollHeight, behavior: 'smooth' });
+            }
+          }, 200);
+
+        } catch (err) {
+          console.error('[ChatUpload] Error processing screenshots:', err);
+          hideChatPill();
+          showToast(`Error analyzing screenshots: ${err.message || 'Check server connection'}`);
+          chatFileInput.value = '';
+        }
+      });
     }
 
     // Initial render of matches list (offline baseline)
@@ -2208,7 +2690,7 @@
     if (typeof analyzeScreenshotImage !== 'undefined') {
       window.analyzeScreenshotImage = analyzeScreenshotImage;
     }
-    window.runTestParser = async function() {
+    window.runTestParser = async function () {
       try {
         console.log('[TEST_PARSER] Starting test parse...');
         const res = await fetch('/media_1789926022466.jpg');
@@ -2438,9 +2920,31 @@
         }
       });
     }
+
+    window.runChatUploadTest = async function () {
+      try {
+        console.log('[Test] Triggering test chat upload with synthetic frames...');
+        const paths = ['synthetic_frames_01/01.jpg', 'synthetic_frames_01/02.jpg', 'synthetic_frames_01/03.jpg'];
+        const files = await Promise.all(paths.map(async (p, i) => {
+          const r = await fetch(p);
+          const b = await r.blob();
+          return new File([b], 'frame_' + i + '.jpg', { type: 'image/jpeg' });
+        }));
+        const dt = new DataTransfer();
+        files.forEach(f => dt.items.add(f));
+        const el = document.getElementById('chatFileInput');
+        if (el) {
+          el.files = dt.files;
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      } catch (err) {
+        console.error('[Test] Error running chat upload test:', err);
+      }
+    };
   </script>
 
   <button id="debugTestBtn" style="display:none;" onclick="window.runTestParser()">⚡ Test Parser</button>
+  <button id="debugChatUploadBtn" style="display:none;" onclick="window.runChatUploadTest()">⚡ Test Chat</button>
 </body>
 
 </html>
