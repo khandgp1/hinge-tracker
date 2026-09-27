@@ -1341,6 +1341,65 @@
       background: #5b1442;
     }
 
+    /* Matches List Empty State */
+    .matches-empty-state {
+      padding: 72px 24px 40px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .matches-empty-icon-wrap {
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      background: rgba(112, 26, 81, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .matches-empty-title {
+      font-size: 19px;
+      font-weight: 700;
+      color: #1c1c1e;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    .matches-empty-subtitle {
+      font-size: 14.5px;
+      line-height: 1.45;
+      color: #8e8e93;
+      max-width: 270px;
+      margin-bottom: 26px;
+    }
+
+    .matches-import-action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #701A51;
+      color: #ffffff;
+      border: none;
+      border-radius: 24px;
+      padding: 12px 24px;
+      font-size: 14.5px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow: 0 4px 14px rgba(112, 26, 81, 0.22);
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+
+    .matches-import-action-btn:active {
+      transform: scale(0.97);
+      background: #5b1442;
+    }
+
     /* Floating In-Chat Progress Pill */
     .chat-upload-pill {
       position: fixed;
@@ -1714,7 +1773,7 @@
       }
     ];
 
-    let matchesData = [...defaultMatchesData];
+    let matchesData = [];
 
     const aubreyChatData = [
 
@@ -2025,6 +2084,39 @@
     function renderMatchesList() {
       const container = document.getElementById('matchesList');
       if (!container) return;
+
+      if (!matchesData || matchesData.length === 0) {
+        container.innerHTML = `
+          <div class="matches-empty-state">
+            <div class="matches-empty-icon-wrap">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#701A51" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </div>
+            <div class="matches-empty-title">No matches yet</div>
+            <div class="matches-empty-subtitle">Take a screenshot of your Hinge matches list and import it here to get started.</div>
+            <button class="matches-import-action-btn" id="emptyMatchesImportBtn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              Import Matches
+            </button>
+          </div>
+        `;
+        const emptyImportBtn = document.getElementById('emptyMatchesImportBtn');
+        if (emptyImportBtn) {
+          emptyImportBtn.onclick = () => {
+            const fileInput = document.getElementById('matchesFileInput');
+            if (fileInput) fileInput.click();
+          };
+        }
+        return;
+      }
+
       container.innerHTML = matchesData.map((item) => `
         <div class="match-row" data-name="${item.name}">
           <img class="avatar" src="${item.image}" alt="${item.name}">
@@ -2060,25 +2152,9 @@
 
       currentMatchChatUnsubscribe = chatCol.orderBy('order', 'asc').onSnapshot(async (snapshot) => {
         if (snapshot.empty) {
-          // If Aubrey and collection is empty, seed aubreyChatData!
-          if (match.name === 'Aubrey') {
-            console.log('[Firestore] Seeding Aubrey baseline chat...');
-            const batch = db.batch();
-            aubreyChatData.forEach((item, idx) => {
-              const docRef = chatCol.doc();
-              batch.set(docRef, {
-                ...item,
-                order: idx + 1,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-              });
-            });
-            await batch.commit();
-            return;
-          }
-
           currentMatchMessages = [];
 
-          // Otherwise render empty state
+          // Render empty state
           feedEl.innerHTML = `
             <div class="chat-empty-state">
               <img src="${match.image}" alt="${match.name}" class="chat-empty-avatar">
@@ -2366,29 +2442,6 @@
       try {
         const matchesCol = db.collection('matches');
 
-        // Check if collection has any matches; if empty, seed baseline defaults
-        const snap = await matchesCol.limit(1).get();
-        if (snap.empty) {
-          console.log('[Firestore] Seeding default matches...');
-          const batch = db.batch();
-          const baseTime = Date.now();
-          defaultMatchesData.forEach((m, idx) => {
-            const docRef = matchesCol.doc();
-            // Stagger timestamps so top matches (Divya, Aubrey) appear with newest timestamps
-            const staggeredDate = new Date(baseTime - (idx * 60000));
-            batch.set(docRef, {
-              name: m.name,
-              preview: m.preview,
-              isMatchedNotice: m.isMatchedNotice,
-              image: m.image,
-              hash: m.hash || '',
-              createdAt: firebase.firestore.Timestamp.fromDate(staggeredDate)
-            });
-          });
-          await batch.commit();
-          console.log('[Firestore] Default matches seeded successfully.');
-        }
-
         // Attach live listener for all updates across devices
         matchesCol.orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
           if (!snapshot.empty) {
@@ -2396,8 +2449,10 @@
               id: doc.id,
               ...doc.data()
             }));
-            renderMatchesList();
+          } else {
+            matchesData = [];
           }
+          renderMatchesList();
         }, (err) => {
           console.warn('[Firestore] Error in matches real-time listener:', err);
         });
