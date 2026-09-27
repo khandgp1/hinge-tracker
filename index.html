@@ -200,6 +200,14 @@
       width: 36px;
       height: 36px;
       cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.12s ease;
+    }
+
+    .nav-item:active {
+      transform: scale(0.9);
+      opacity: 0.8;
     }
 
     .nav-badge {
@@ -260,6 +268,16 @@
 
     .nav-avatar.active {
       border: 2px solid #ffffff;
+    }
+
+    .nav-heart-icon {
+      width: 25px;
+      height: 22px;
+      object-fit: contain;
+      display: block;
+      pointer-events: none;
+      user-select: none;
+      -webkit-user-drag: none;
     }
 
     /* Chat Overlay View */
@@ -1488,6 +1506,16 @@
     .app-toast.error svg {
       stroke: #ff453a;
     }
+
+    .app-toast.info {
+      background: rgba(28, 28, 30, 0.94);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: #f2f2f7;
+    }
+
+    .app-toast.info svg {
+      stroke: #a1a1aa;
+    }
   </style>
 </head>
 
@@ -1639,7 +1667,7 @@
 
   <nav class="bottom-nav">
     <!-- Hinge 'H' Icon -->
-    <div class="nav-item">
+    <div class="nav-item" id="navDiscoverBtn" role="button" aria-label="Discover">
       <svg width="100" height="100" viewBox="0 0 100 100" fill="#888888">
         <!-- Left Pillar -->
         <rect x="22" y="20" width="13" height="60" />
@@ -1663,7 +1691,7 @@
     </div>
 
     <!-- Star Icon -->
-    <div class="nav-item">
+    <div class="nav-item" id="navStandoutsBtn" role="button" aria-label="Standouts">
       <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.2"
         stroke-linecap="round" stroke-linejoin="round">
         <polygon
@@ -1672,15 +1700,9 @@
       </svg>
     </div>
 
-    <!-- Heart Icon with Badge -->
-    <div class="nav-item">
-      <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.2"
-        stroke-linecap="round" stroke-linejoin="round">
-        <path
-          d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l8.72-8.72 1.06-1.06a5.5 5.5 0 0 0 0-7.78z">
-        </path>
-      </svg>
-      <span class="nav-badge">9</span>
+    <!-- Heart Icon -->
+    <div class="nav-item" id="navLikesBtn" role="button" aria-label="Likes You">
+      <img src="assets/nav_heart.png" alt="Likes You" class="nav-heart-icon">
     </div>
 
     <!-- Active Chat Speech Bubble Icon -->
@@ -2392,12 +2414,21 @@
         document.body.appendChild(toast);
       }
       toast.className = `app-toast ${type}`;
+
+      const iconSvg = type === 'info'
+        ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+             <circle cx="12" cy="12" r="10"></circle>
+             <line x1="12" y1="16" x2="12" y2="12"></line>
+             <line x1="12" y1="8" x2="12.01" y2="8"></line>
+           </svg>`
+        : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+             <circle cx="12" cy="12" r="10"></circle>
+             <line x1="12" y1="8" x2="12" y2="12"></line>
+             <line x1="12" y1="16" x2="12.01" y2="16"></line>
+           </svg>`;
+
       toast.innerHTML = `
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="8" x2="12" y2="12"></line>
-          <line x1="12" y1="16" x2="12.01" y2="16"></line>
-        </svg>
+        ${iconSvg}
         <span>${message}</span>
       `;
       void toast.offsetWidth;
@@ -2741,9 +2772,25 @@
       }
     }
 
+    const navDiscoverBtn = document.getElementById('navDiscoverBtn');
+    const navStandoutsBtn = document.getElementById('navStandoutsBtn');
+    const navLikesBtn = document.getElementById('navLikesBtn');
     const navChatBtn = document.getElementById('navChatBtn');
     const navProfileBtn = document.getElementById('navProfileBtn');
 
+    const showNotAvailableNotice = () => {
+      showToast('This feature is not available yet', 'info', 2500);
+    };
+
+    if (navDiscoverBtn) {
+      navDiscoverBtn.addEventListener('click', showNotAvailableNotice);
+    }
+    if (navStandoutsBtn) {
+      navStandoutsBtn.addEventListener('click', showNotAvailableNotice);
+    }
+    if (navLikesBtn) {
+      navLikesBtn.addEventListener('click', showNotAvailableNotice);
+    }
     if (navChatBtn) {
       navChatBtn.addEventListener('click', () => switchTab('matches'));
     }
