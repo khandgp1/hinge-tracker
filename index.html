@@ -866,6 +866,7 @@
 
     .expert-sheet-body {
       flex: 1;
+      min-height: 0;
       overflow-y: auto;
       padding: 14px 16px;
       display: flex;
@@ -1852,6 +1853,13 @@
           badge.style.display = 'none';
         }
         if (chatOverlay) chatOverlay.classList.add('sheet-open');
+
+        const expertBody = document.getElementById('expertSheetBody');
+        if (expertBody) {
+          setTimeout(() => {
+            expertBody.scrollTop = expertBody.scrollHeight;
+          }, 100);
+        }
       } else {
         sheetState = 'collapsed';
         sheet.className = 'expert-sheet collapsed';
@@ -2135,7 +2143,7 @@
 
       sheetState = 'collapsed';
       if (sheet) {
-        sheet.style.display = 'block';
+        sheet.style.display = 'flex';
         sheet.className = 'expert-sheet collapsed';
       }
 
@@ -2731,17 +2739,19 @@
 
     const expertSheetBody = document.getElementById('expertSheetBody');
     if (expertSheetBody) {
-      let expertTouchStartY = 0;
+      let expertTouchLastY = 0;
       expertSheetBody.addEventListener('touchstart', (e) => {
         if (e.touches && e.touches.length > 0) {
-          expertTouchStartY = e.touches[0].clientY;
+          expertTouchLastY = e.touches[0].clientY;
         }
       }, { passive: true });
 
       expertSheetBody.addEventListener('touchmove', (e) => {
         if (!e.touches || e.touches.length === 0) return;
         const currentY = e.touches[0].clientY;
-        const deltaY = currentY - expertTouchStartY;
+        const deltaY = currentY - expertTouchLastY;
+        expertTouchLastY = currentY;
+
         const isAtTop = expertSheetBody.scrollTop <= 0;
         const isAtBottom = expertSheetBody.scrollTop + expertSheetBody.clientHeight >= expertSheetBody.scrollHeight - 1;
 
@@ -2757,17 +2767,19 @@
     }
 
     if (chatBody) {
-      let chatTouchStartY = 0;
+      let chatTouchLastY = 0;
       chatBody.addEventListener('touchstart', (e) => {
         if (e.touches && e.touches.length > 0) {
-          chatTouchStartY = e.touches[0].clientY;
+          chatTouchLastY = e.touches[0].clientY;
         }
       }, { passive: true });
 
       chatBody.addEventListener('touchmove', (e) => {
         if (!e.touches || e.touches.length === 0) return;
         const currentY = e.touches[0].clientY;
-        const deltaY = currentY - chatTouchStartY;
+        const deltaY = currentY - chatTouchLastY;
+        chatTouchLastY = currentY;
+
         const isAtTop = chatBody.scrollTop <= 0;
         const isAtBottom = chatBody.scrollTop + chatBody.clientHeight >= chatBody.scrollHeight - 1;
 
