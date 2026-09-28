@@ -63,6 +63,25 @@ def get_all_messages():
     return docs
 
 
+def get_all_coach_messages():
+    """Find all coach dialogue documents in any 'coachDialogue' subcollection using collectionGroup query."""
+    url = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery"
+    query = {
+        "structuredQuery": {
+            "from": [{"collectionId": "coachDialogue", "allDescendants": True}]
+        }
+    }
+    resp = api_request(url, method="POST", data=query)
+    if not resp or not isinstance(resp, list):
+        return []
+    
+    docs = []
+    for item in resp:
+        if "document" in item and "name" in item["document"]:
+            docs.append(item["document"]["name"])
+    return docs
+
+
 def get_all_matches():
     """List all documents in the 'matches' collection."""
     url = f"{BASE_URL}/matches"
@@ -81,11 +100,19 @@ def delete_doc(doc_name: str) -> bool:
 
 def main():
     skip_confirm = False
+    wipe_coach = False
     for arg in sys.argv[1:]:
         if arg in ("--yes", "-y", "--force", "-f"):
             skip_confirm = True
+        elif arg == "--wipe-coach":
+            wipe_coach = True
+        elif arg == "--preserve-coach":
+            wipe_coach = False
         elif arg in ("--help", "-h", "help"):
             print(__doc__)
+            print("Options:")
+            print("  --wipe-coach       Also delete all coach & client dialogue messages")
+            print("  --preserve-coach   Preserve coach dialogue messages (default)")
             sys.exit(0)
 
     print("=" * 60)
@@ -94,20 +121,25 @@ def main():
     print("Targeted collections for deletion:")
     print("  • matches/                 (All match cards)")
     print("  • chats/*/messages/        (All chat message bubbles)")
-    print("Protected collections (NEVER deleted):")
-    print("  • coachDialogue/           (Coach/client advice messages)")
+    if wipe_coach:
+        print("  • chats/*/coachDialogue/   (Coach/client advice messages) [WIPING]")
+    else:
+        print("Protected collections (PRESERVED):")
+        print("  • chats/*/coachDialogue/   (Coach/client advice messages)")
     print("=" * 60)
 
     # 1. Inspect existing records
     print("\nScanning database...")
     matches = get_all_matches()
     messages = get_all_messages()
+    coach_messages = get_all_coach_messages()
 
     print(f"Found {len(matches)} match document(s) in 'matches'.")
     print(f"Found {len(messages)} message document(s) in chats.")
+    print(f"Found {len(coach_messages)} coach message document(s) in chats/*/coachDialogue.")
 
-    if not matches and not messages:
-        print("\nDatabase is already completely clean (0 matches, 0 messages). Nothing to do.")
+    if not matches and not messages and (not wipe_coach or not coach_messages):
+        print("\nDatabase is already completely clean. Nothing to do.")
         sys.exit(0)
 
     # 2. Confirmation
@@ -116,6 +148,10 @@ def main():
         if confirm not in ("y", "yes"):
             print("Aborted by user.")
             sys.exit(0)
+        if not wipe_coach and coach_messages:
+            ask_coach = input("Do you also want to wipe all Coach & Client dialogue? (y/N): ").strip().lower()
+            if ask_coach in ("y", "yes"):
+                wipe_coach = True
 
     # 3. Delete messages
     print(f"\nDeleting {len(messages)} chat message(s)...")
@@ -126,7 +162,17 @@ def main():
             if idx % 10 == 0 or idx == len(messages):
                 print(f"  [{idx}/{len(messages)}] messages deleted...")
 
-    # 4. Delete matches
+    # 4. Delete coach dialogue if requested
+    deleted_coach_msgs = 0
+    if wipe_coach and coach_messages:
+        print(f"\nDeleting {len(coach_messages)} coach message(s)...")
+        for idx, doc_name in enumerate(coach_messages, 1):
+            if delete_doc(doc_name):
+                deleted_coach_msgs += 1
+                if idx % 10 == 0 or idx == len(coach_messages):
+                    print(f"  [{idx}/{len(coach_messages)}] coach messages deleted...")
+
+    # 5. Delete matches
     print(f"\nDeleting {len(matches)} match card(s)...")
     deleted_matches = 0
     for idx, doc in enumerate(matches, 1):
@@ -140,7 +186,10 @@ def main():
     print(" Reset Complete!")
     print(f"  • Deleted {deleted_matches} match document(s)")
     print(f"  • Deleted {deleted_msgs} chat message(s)")
-    print("  • Preserved coachDialogue intact")
+    if wipe_coach:
+        print(f"  • Deleted {deleted_coach_msgs} coach message(s)")
+    else:
+        print(f"  • Preserved {len(coach_messages)} coachDialogue message(s) intact")
     print("=" * 60 + "\n")
 
 

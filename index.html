@@ -1636,7 +1636,7 @@
             <span class="expert-title">Coach & Client Dialogue</span>
             <span class="expert-subtitle">Real-time Advice Stream</span>
           </div>
-          <span id="expertBadge" class="expert-unread-badge">2</span>
+          <span id="expertBadge" class="expert-unread-badge" style="display: none;">0</span>
           <button id="expertExpandBtn" class="expert-toggle-btn" aria-label="Toggle drawer">
             <svg id="expertChevron" class="chevron-icon" width="20" height="20" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1763,17 +1763,40 @@
 
 
 
-    // ─── Real-time Firestore Listener ──────────────────────────────────────
-    let coachListenerActive = false;
-    function initCoachListener() {
-      if (coachListenerActive) return;
-      coachListenerActive = true;
-      const feed = document.getElementById('expertChatFeed');
-      if (!feed) return;
+    // ─── Real-time Firestore Coach Listener ──────────────────────────────────────
+    let currentCoachChatUnsubscribe = null;
+    let coachUnreadCount = 0;
 
-      db.collection('coachDialogue')
+    function initCoachListener(match) {
+      if (currentCoachChatUnsubscribe) {
+        currentCoachChatUnsubscribe();
+        currentCoachChatUnsubscribe = null;
+      }
+      coachUnreadCount = 0;
+      const badge = document.getElementById('expertBadge');
+      if (badge) {
+        badge.textContent = '0';
+        badge.style.display = 'none';
+      }
+
+      const feed = document.getElementById('expertChatFeed');
+      if (!feed || !match || !match.name) return;
+      feed.innerHTML = '';
+
+      let isInitialLoad = true;
+
+      currentCoachChatUnsubscribe = db.collection('chats')
+        .doc(match.name)
+        .collection('coachDialogue')
         .orderBy('ts', 'asc')
         .onSnapshot((snapshot) => {
+          if (snapshot.empty) {
+            feed.innerHTML = '';
+            if (badge) badge.style.display = 'none';
+            isInitialLoad = false;
+            return;
+          }
+
           feed.innerHTML = snapshot.docs.map(doc => {
             const d = doc.data();
             const senderClass = d.sender === 'coach' ? 'coach' : 'client';
@@ -1790,13 +1813,28 @@
             `;
           }).join('');
 
+          // Dynamic unread count when collapsed
+          if (!isInitialLoad && sheetState === 'collapsed') {
+            const addedCoachDocs = snapshot.docChanges().filter(c => c.type === 'added' && c.doc.data().sender === 'coach');
+            if (addedCoachDocs.length > 0) {
+              coachUnreadCount += addedCoachDocs.length;
+              if (badge) {
+                badge.textContent = coachUnreadCount;
+                badge.style.display = 'inline-block';
+              }
+            }
+          } else if (sheetState === 'open') {
+            coachUnreadCount = 0;
+            if (badge) badge.style.display = 'none';
+          }
+          isInitialLoad = false;
+
           const body = document.getElementById('expertSheetBody');
           if (body) body.scrollTop = body.scrollHeight;
         }, (err) => {
-          console.error('Firestore onSnapshot error:', err);
+          console.error('Firestore coach onSnapshot error:', err);
         });
     }
-
 
     function toggleExpertSheet() {
       const sheet = document.getElementById('expertBottomSheet');
@@ -1808,7 +1846,11 @@
       if (sheetState === 'collapsed') {
         sheetState = 'open';
         sheet.className = 'expert-sheet open';
-        if (badge) badge.style.display = 'none';
+        coachUnreadCount = 0;
+        if (badge) {
+          badge.textContent = '0';
+          badge.style.display = 'none';
+        }
         if (chatOverlay) chatOverlay.classList.add('sheet-open');
       } else {
         sheetState = 'collapsed';
@@ -1827,12 +1869,12 @@
 
     function sendExpertMessage() {
       const input = document.getElementById('expertInput');
-      if (!input) return;
+      if (!input || !currentActiveMatch || !currentActiveMatch.name) return;
       const text = (input.innerText || input.textContent || '').trim();
       if (!text) return;
 
-      // Write to Firestore — onSnapshot will update both devices
-      db.collection('coachDialogue').add({
+      // Write to active match's coachDialogue subcollection
+      db.collection('chats').doc(currentActiveMatch.name).collection('coachDialogue').add({
         sender: currentRole,
         name: currentName,
         text: text,
@@ -2085,22 +2127,19 @@
       scrollRestoreY = window.scrollY || document.documentElement.scrollTop || 0;
       tabScrollPositions.matches = scrollRestoreY;
 
+      currentActiveMatch = match;
       const titleEl = chatOverlay.querySelector('.chat-title');
       const sheet = document.getElementById('expertBottomSheet');
 
       if (titleEl) titleEl.textContent = match.name;
 
-      if (match.name === 'Aubrey') {
-        initCoachListener();
-        sheetState = 'collapsed';
-        if (sheet) {
-          sheet.style.display = 'block';
-          sheet.className = 'expert-sheet collapsed';
-        }
-      } else {
-        if (sheet) sheet.style.display = 'none';
+      sheetState = 'collapsed';
+      if (sheet) {
+        sheet.style.display = 'block';
+        sheet.className = 'expert-sheet collapsed';
       }
 
+      initCoachListener(match);
       initMatchChatListener(match);
 
       chatOverlay.classList.remove('sheet-open');
@@ -2142,7 +2181,26 @@
         currentMatchChatUnsubscribe();
         currentMatchChatUnsubscribe = null;
       }
+      if (currentCoachChatUnsubscribe) {
+        currentCoachChatUnsubscribe();
+        currentCoachChatUnsubscribe = null;
+      }
       currentActiveMatch = null;
+      coachUnreadCount = 0;
+
+      const feed = document.getElementById('expertChatFeed');
+      if (feed) feed.innerHTML = '';
+      const badge = document.getElementById('expertBadge');
+      if (badge) {
+        badge.textContent = '0';
+        badge.style.display = 'none';
+      }
+      const expertInputEl = document.getElementById('expertInput');
+      if (expertInputEl) {
+        expertInputEl.innerText = '';
+        expertInputEl.style.height = '';
+      }
+
       chatOverlay.classList.remove('active');
       chatOverlay.classList.remove('sheet-open');
       chatOverlay.style.paddingBottom = '0px';
