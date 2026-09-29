@@ -338,6 +338,21 @@
 
     .chat-header-spacer {
       width: 32px;
+      height: 32px;
+      display: none;
+    }
+
+    /* Coach View Restrictions */
+    body.role-coach #importMatchesBtn {
+      display: none !important;
+    }
+
+    body.role-coach #chatUploadBtn {
+      display: none !important;
+    }
+
+    body.role-coach #chatHeaderSpacer {
+      display: block !important;
     }
 
     /* Floating back button & sheet-open space optimizations */
@@ -1611,6 +1626,7 @@
           <polyline points="21 15 16 10 5 21" />
         </svg>
       </button>
+      <div id="chatHeaderSpacer" class="chat-header-spacer" aria-hidden="true"></div>
       <input type="file" id="chatFileInput" accept="image/*" multiple style="display: none;">
     </div>
 
@@ -1746,10 +1762,27 @@
 
     let matchesData = [];
 
-    // ─── Role Detection ───────────────────────────────────────────────────────
-    const urlRole = new URLSearchParams(window.location.search).get('role');
-    const currentRole = urlRole === 'coach' ? 'coach' : 'client';
+    // ─── Role Detection & Persistence ──────────────────────────────────────────
+    const urlParams = new URLSearchParams(window.location.search);
+    const paramRole = urlParams.get('role');
+    if (paramRole) {
+      sessionStorage.setItem('hinge_tracker_role', paramRole);
+    }
+    const storedRole = sessionStorage.getItem('hinge_tracker_role');
+    const effectiveRole = paramRole || storedRole;
+    const currentRole = effectiveRole === 'coach' ? 'coach' : 'client';
     const currentName = currentRole === 'coach' ? 'DA' : 'Me';
+
+    if (currentRole === 'coach') {
+      document.body.classList.add('role-coach');
+      if (!paramRole) {
+        const newUrl = new URL(window.location);
+        newUrl.searchParams.set('role', 'coach');
+        window.history.replaceState({}, '', newUrl);
+      }
+    } else {
+      document.body.classList.remove('role-coach');
+    }
 
     // Update input placeholder based on role
     const expertInputEl = document.getElementById('expertInput');
@@ -2042,13 +2075,14 @@
             </div>
             <div class="matches-empty-title">No matches yet</div>
             <div class="matches-empty-subtitle">Take a screenshot of your Hinge matches list and import it here to get started.</div>
+            ${currentRole !== 'coach' ? `
             <button class="matches-import-action-btn" id="emptyMatchesImportBtn">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
               </svg>
               Import Matches
-            </button>
+            </button>` : ''}
           </div>
         `;
         const emptyImportBtn = document.getElementById('emptyMatchesImportBtn');
@@ -2104,13 +2138,14 @@
               <img src="${match.image}" alt="${match.name}" class="chat-empty-avatar">
               <div class="chat-empty-title">You matched with ${match.name}</div>
               <div class="chat-empty-bubble">Start the chat with ${match.name}</div>
+              ${currentRole !== 'coach' ? `
               <button class="chat-upload-action-btn" id="emptyStateUploadBtn">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
                   <circle cx="12" cy="13" r="4"></circle>
                 </svg>
                 Upload Chat Screenshots
-              </button>
+              </button>` : ''}
             </div>
           `;
           const emptyBtn = document.getElementById('emptyStateUploadBtn');
@@ -2243,6 +2278,7 @@
 
     if (chatUploadBtn && chatFileInput) {
       chatUploadBtn.addEventListener('click', () => {
+        if (currentRole === 'coach') return;
         chatFileInput.value = '';
         chatFileInput.click();
       });
@@ -2250,6 +2286,11 @@
 
     if (chatFileInput) {
       chatFileInput.addEventListener('change', async (e) => {
+        if (currentRole === 'coach') {
+          console.warn('[Coach] Chat screenshot upload is disabled in coach view.');
+          chatFileInput.value = '';
+          return;
+        }
         const files = Array.from(e.target.files || []);
         if (files.length === 0) return;
 
@@ -2436,11 +2477,16 @@
 
     if (importMatchesBtn && matchesFileInput) {
       importMatchesBtn.addEventListener('click', () => {
+        if (currentRole === 'coach') return;
         matchesFileInput.value = '';
         matchesFileInput.click();
       });
 
       matchesFileInput.addEventListener('change', (e) => {
+        if (currentRole === 'coach') {
+          if (matchesFileInput) matchesFileInput.value = '';
+          return;
+        }
         const file = e.target.files && e.target.files[0];
         if (file) {
           processScreenshotFile(file);
@@ -2506,6 +2552,10 @@
     }
 
     async function processScreenshotFile(file) {
+      if (currentRole === 'coach') {
+        console.warn('[Coach] Adding matches is disabled in coach view.');
+        return;
+      }
       openImportModal();
 
       if (importLoadingSubtitle) {
@@ -2966,6 +3016,10 @@
     }
 
     window.runChatUploadTest = async function () {
+      if (currentRole === 'coach') {
+        console.warn('[Coach] Test chat upload is disabled in coach view.');
+        return;
+      }
       try {
         console.log('[Test] Triggering test chat upload with synthetic frames...');
         const paths = ['synthetic_frames_01/01.jpg', 'synthetic_frames_01/02.jpg', 'synthetic_frames_01/03.jpg'];
