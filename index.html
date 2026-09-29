@@ -238,9 +238,138 @@
     }
 
     .profile-header-wrapper {
-      position: static;
+      position: relative;
       background: #ffffff;
       width: 100%;
+    }
+
+    .profile-title-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: transparent;
+      border: none;
+      padding: 6px 14px;
+      margin: 0;
+      border-radius: 20px;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: background-color 0.15s ease, transform 0.1s ease;
+    }
+
+    .profile-title-btn:hover {
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+
+    .profile-title-btn:active {
+      background-color: rgba(0, 0, 0, 0.08);
+      transform: scale(0.97);
+    }
+
+    .profile-title-btn .header-title {
+      font-size: 21.5px;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+      color: #000000;
+      line-height: 1.2;
+      margin: 0;
+      pointer-events: none;
+    }
+
+    .profile-dropdown-chevron {
+      color: #000000;
+      transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      flex-shrink: 0;
+      pointer-events: none;
+    }
+
+    .profile-title-btn.is-open .profile-dropdown-chevron {
+      transform: rotate(180deg);
+    }
+
+    .profile-dropdown-menu {
+      position: absolute;
+      top: calc(100% - 6px);
+      left: 50%;
+      transform: translateX(-50%) translateY(-6px) scale(0.95);
+      min-width: 180px;
+      max-width: 90vw;
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-radius: 14px;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.04);
+      padding: 6px;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .profile-dropdown-menu.is-open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(-50%) translateY(0) scale(1);
+    }
+
+    .profile-dropdown-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 500;
+      color: #1c1c1e;
+      transition: background-color 0.12s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      outline: none;
+    }
+
+    .profile-dropdown-item:hover,
+    .profile-dropdown-item:focus-visible {
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+
+    .profile-dropdown-item:active {
+      background-color: rgba(0, 0, 0, 0.09);
+    }
+
+    .profile-dropdown-item.is-selected {
+      font-weight: 600;
+      color: #000000;
+    }
+
+    .profile-dropdown-checkmark {
+      color: #000000;
+      flex-shrink: 0;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    .profile-dropdown-item.is-selected .profile-dropdown-checkmark {
+      opacity: 1;
+    }
+
+    .profile-dropdown-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 999;
+      background: transparent;
+      display: none;
+    }
+
+    .profile-dropdown-backdrop.is-active {
+      display: block;
     }
 
     .profile-content {
@@ -1562,8 +1691,16 @@
   <div id="profileView" class="tab-view profile-view" style="display: none;">
     <div class="profile-header-wrapper">
       <header class="header">
-        <h1 class="header-title">Profile</h1>
+        <button type="button" class="profile-title-btn" id="profileDropdownTrigger" aria-haspopup="true" aria-expanded="false" title="Switch Profile">
+          <h1 class="header-title" id="profileHeaderTitle">Profile 1</h1>
+          <svg class="profile-dropdown-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+
+        <div id="profileDropdownMenu" class="profile-dropdown-menu" role="menu" aria-label="Select Profile"></div>
       </header>
+      <div id="profileDropdownBackdrop" class="profile-dropdown-backdrop"></div>
       <div class="divider-line"></div>
     </div>
 
@@ -2917,6 +3054,170 @@
     if (navProfileBtn) {
       navProfileBtn.addEventListener('click', () => switchTab('profile'));
     }
+
+    // ─── Multi-Profile Presets & Cross-Device Firestore Sync ─────────────────
+    const PROFILES = [
+      {
+        id: 'profile_01',
+        name: 'Profile 1',
+        image: 'profile_01.png'
+      },
+      {
+        id: 'profile_02',
+        name: 'Profile 2',
+        image: 'profile_02.png'
+      }
+    ];
+
+    let currentProfileId = PROFILES[0].id;
+    let isProfileDropdownOpen = false;
+
+    function renderProfileDropdown() {
+      const menu = document.getElementById('profileDropdownMenu');
+      if (!menu) return;
+
+      menu.innerHTML = PROFILES.map(p => {
+        const isSelected = p.id === currentProfileId;
+        return `
+          <div class="profile-dropdown-item ${isSelected ? 'is-selected' : ''}" 
+               data-profile-id="${p.id}" 
+               role="menuitem" 
+               tabindex="0">
+            <span>${p.name}</span>
+            <svg class="profile-dropdown-checkmark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+        `;
+      }).join('');
+
+      // Add click & keyboard listeners to items
+      menu.querySelectorAll('.profile-dropdown-item').forEach(item => {
+        const handleSelect = (e) => {
+          e.stopPropagation();
+          const targetId = item.getAttribute('data-profile-id');
+          if (targetId) {
+            selectProfile(targetId, true);
+          }
+          closeProfileDropdown();
+        };
+
+        item.addEventListener('click', handleSelect);
+        item.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleSelect(e);
+          }
+        });
+      });
+    }
+
+    function applyProfileUI(profileId) {
+      const profile = PROFILES.find(p => p.id === profileId) || PROFILES[0];
+      currentProfileId = profile.id;
+
+      const titleEl = document.getElementById('profileHeaderTitle');
+      if (titleEl) {
+        titleEl.textContent = profile.name;
+      }
+
+      const imgEl = document.getElementById('profileImage');
+      if (imgEl && imgEl.getAttribute('src') !== profile.image) {
+        imgEl.src = profile.image;
+        imgEl.alt = profile.name;
+      }
+
+      renderProfileDropdown();
+    }
+
+    async function selectProfile(profileId, syncToFirestore = true) {
+      applyProfileUI(profileId);
+
+      if (syncToFirestore && typeof db !== 'undefined' && db) {
+        try {
+          await db.collection('settings').doc('profile').set({
+            activeProfileId: profileId,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+        } catch (err) {
+          console.warn('[Profile] Error syncing profile selection to Firestore:', err);
+        }
+      }
+    }
+
+    function toggleProfileDropdown() {
+      if (isProfileDropdownOpen) {
+        closeProfileDropdown();
+      } else {
+        openProfileDropdown();
+      }
+    }
+
+    function openProfileDropdown() {
+      const menu = document.getElementById('profileDropdownMenu');
+      const trigger = document.getElementById('profileDropdownTrigger');
+      const backdrop = document.getElementById('profileDropdownBackdrop');
+      if (!menu || !trigger) return;
+
+      isProfileDropdownOpen = true;
+      trigger.classList.add('is-open');
+      trigger.setAttribute('aria-expanded', 'true');
+      menu.classList.add('is-open');
+      if (backdrop) backdrop.classList.add('is-active');
+    }
+
+    function closeProfileDropdown() {
+      const menu = document.getElementById('profileDropdownMenu');
+      const trigger = document.getElementById('profileDropdownTrigger');
+      const backdrop = document.getElementById('profileDropdownBackdrop');
+      if (!menu || !trigger) return;
+
+      isProfileDropdownOpen = false;
+      trigger.classList.remove('is-open');
+      trigger.setAttribute('aria-expanded', 'false');
+      menu.classList.remove('is-open');
+      if (backdrop) backdrop.classList.remove('is-active');
+    }
+
+    function initProfileSync() {
+      renderProfileDropdown();
+      applyProfileUI(currentProfileId);
+
+      const trigger = document.getElementById('profileDropdownTrigger');
+      if (trigger) {
+        trigger.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleProfileDropdown();
+        });
+      }
+
+      const backdrop = document.getElementById('profileDropdownBackdrop');
+      if (backdrop) {
+        backdrop.addEventListener('click', closeProfileDropdown);
+      }
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && isProfileDropdownOpen) {
+          closeProfileDropdown();
+        }
+      });
+
+      // Real-time Firestore sync
+      if (typeof db !== 'undefined' && db) {
+        db.collection('settings').doc('profile').onSnapshot((doc) => {
+          if (doc.exists) {
+            const data = doc.data();
+            if (data && data.activeProfileId && data.activeProfileId !== currentProfileId) {
+              selectProfile(data.activeProfileId, false);
+            }
+          }
+        }, (err) => {
+          console.warn('[Profile] Firestore listener warning:', err);
+        });
+      }
+    }
+
+    initProfileSync();
 
     // Mobile 60fps Synchronous Visual Viewport API Input Accessory Transformer
     let vpScheduled = false;

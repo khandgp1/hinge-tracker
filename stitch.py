@@ -9,11 +9,17 @@ and linear alpha seam blending.
 
 import os
 import sys
+import re
 import argparse
 from typing import List, Tuple, Optional
 import cv2
 import numpy as np
 from PIL import Image
+
+
+def natural_sort_key(s: str) -> List:
+    """Return key for natural alphanumeric sorting (e.g. file_2 before file_10)."""
+    return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', s)]
 
 
 def parse_args():
@@ -85,12 +91,16 @@ def load_and_sort_images(inputs: Optional[List[str]]) -> List[np.ndarray]:
                 os.path.join(item, f) for f in os.listdir(item)
                 if f.lower().endswith(valid_exts)
             ]
-            files.sort()
+            files.sort(key=natural_sort_key)
             image_paths.extend(files)
         elif os.path.isfile(item):
             image_paths.append(item)
         else:
             print(f"Warning: Path '{item}' not found.", file=sys.stderr)
+
+    # If an explicit list of files was passed (or mixed), ensure overall list is sorted naturally
+    if len(inputs) > 1 and all(os.path.isfile(item) for item in inputs):
+        image_paths.sort(key=natural_sort_key)
 
     if len(image_paths) < 2:
         print("Error: Need at least 2 screenshots to perform stitching.", file=sys.stderr)
