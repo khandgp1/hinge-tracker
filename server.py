@@ -288,6 +288,12 @@ EMOJI_TEMPLATES = {
         "base_width": 591,
         "base_size": 28,
         "threshold": 0.82
+    },
+    "😏": {
+        "file": os.path.join(BASE_DIR, "assets", "emojis", "smirk.png"),
+        "base_width": 591,
+        "base_size": 28,
+        "threshold": 0.82
     }
 }
 
@@ -296,6 +302,7 @@ def detect_emojis(img: np.ndarray) -> List[Dict[str, Any]]:
     """
     Detect a targeted subset of emojis in a chat screenshot using multi-scale template matching,
     Non-Maximum Suppression (NMS), and bubble color context verification.
+    Supports both sent (purple) and received (grey) bubble backgrounds via circular masking.
     """
     h, w = img.shape[:2]
     detected = []
@@ -327,12 +334,28 @@ def detect_emojis(img: np.ndarray) -> List[Dict[str, Any]]:
                 continue
 
             scaled_tmpl = cv2.resize(template, (sw, sh), interpolation=cv2.INTER_AREA if sc < 1.0 else cv2.INTER_CUBIC)
-            res = cv2.matchTemplate(img, scaled_tmpl, cv2.TM_CCOEFF_NORMED)
-            y_indices, x_indices = np.where(res >= threshold)
 
-            for my, mx in zip(y_indices, x_indices):
-                score = float(res[my, mx])
-                candidate_matches.append((mx, my, sw, sh, score))
+            # Circular mask around emoji face for complementary bubble background generation
+            circle_mask = np.zeros((sh, sw), dtype=np.uint8)
+            cv2.circle(circle_mask, (sw // 2, sh // 2), int(round(min(sw, sh) * 0.46)), 255, -1)
+
+            # Check if template corners are purple or grey
+            corner_pts = np.array([scaled_tmpl[0, 0], scaled_tmpl[0, -1], scaled_tmpl[-1, 0], scaled_tmpl[-1, -1]])
+            mean_corner = np.mean(corner_pts, axis=0)
+            is_native_purple = (mean_corner[2] > mean_corner[1] + 7 and mean_corner[0] > mean_corner[1] + 7)
+            comp_color = np.array([230, 230, 230], dtype=np.uint8) if is_native_purple else np.array([210, 188, 207], dtype=np.uint8)
+
+            comp_tmpl = scaled_tmpl.copy()
+            comp_tmpl[circle_mask == 0] = comp_color
+
+            # Match both native background and complementary bubble color variant
+            for v_tmpl in (scaled_tmpl, comp_tmpl):
+                res = cv2.matchTemplate(img, v_tmpl, cv2.TM_CCOEFF_NORMED)
+                y_indices, x_indices = np.where(res >= threshold)
+
+                for my, mx in zip(y_indices, x_indices):
+                    score = float(res[my, mx])
+                    candidate_matches.append((mx, my, sw, sh, score))
 
         # Sort candidates by score descending
         candidate_matches.sort(key=lambda item: item[4], reverse=True)
@@ -524,22 +547,27 @@ def parse_chat_images(images: List[np.ndarray], match_name: str = "") -> Dict[st
             is_centered_card = abs(left_margin - right_margin) < (w * 0.04)
             card_direction = "received" if is_centered_card else "sent"
 
+            # 1. First, search specifically for explicit like pill phrases within the lower portion of the card
             card_found = False
             for o in obs:
                 b = o["box"]
                 cx = b["pixelX"] + b["pixelWidth"] / 2
                 cy = b["pixelY"] + b["pixelHeight"] / 2
-                if best_card["x1"] <= cx <= best_card["x2"] and (best_card["y1"] + best_card["h"] * 0.55) <= cy <= (best_card["y2"] + 25):
+                if (best_card["x1"] - 10 <= cx <= best_card["x2"] + 10) and ((best_card["y1"] + best_card["h"] * 0.45) <= cy <= (best_card["y2"] + 35)):
                     t = o["text"].strip()
                     lower_t = t.lower()
                     if "liked your" in lower_t:
                         card_direction = "received"
                         card_comment_text = "Liked your photo"
                         card_found = True
+                        consumed_card_obs = o
+                        break
                     elif "you liked" in lower_t:
                         card_direction = "sent"
                         card_comment_text = f"You liked {match_name}'s photo." if match_name else "You liked their photo."
                         card_found = True
+                        consumed_card_obs = o
+                        break
                     elif "liked" in lower_t and "photo" in lower_t:
                         if is_centered_card or (b["pixelX"] < w * 0.35):
                             card_direction = "received"
@@ -548,15 +576,38 @@ def parse_chat_images(images: List[np.ndarray], match_name: str = "") -> Dict[st
                             card_direction = "sent"
                             card_comment_text = f"You liked {match_name}'s photo." if match_name else "You liked their photo."
                         card_found = True
-                    else:
+                        consumed_card_obs = o
+                        break
+
+            # 2. If no explicit like pill found, check for a user comment on the photo
+            if not card_found:
+                for o in obs:
+                    b = o["box"]
+                    cx = b["pixelX"] + b["pixelWidth"] / 2
+                    cy = b["pixelY"] + b["pixelHeight"] / 2
+                    if (best_card["x1"] - 10 <= cx <= best_card["x2"] + 10) and ((best_card["y1"] + best_card["h"] * 0.65) <= cy <= (best_card["y2"] + 25)):
+                        t = o["text"].strip()
                         card_comment_text = t
                         if b["pixelX"] < w * 0.35:
                             card_direction = "received"
                         elif b["pixelX"] > w * 0.45:
                             card_direction = "sent"
                         card_found = True
-                    consumed_card_obs = o
-                    break
+                        consumed_card_obs = o
+                        break
+
+            # Mark all observations located strictly inside the photo area of best_card as consumed
+            # so background signage / posters in photos (e.g. "DR TEA", "TIEC MEI") don't become rogue bubbles
+            suppressed_in_card_obs = []
+            for o in obs:
+                if o is consumed_card_obs:
+                    continue
+                b = o["box"]
+                if (best_card["x1"] - 5 <= b["pixelX"] and
+                    b["pixelX"] + b["pixelWidth"] <= best_card["x2"] + 5 and
+                    best_card["y1"] - 5 <= b["pixelY"] and
+                    b["pixelY"] + b["pixelHeight"] <= (best_card["y2"] - best_card["h"] * 0.08)):
+                    suppressed_in_card_obs.append(o)
 
             if not card_found and not is_centered_card:
                 best_card = None
@@ -573,6 +624,8 @@ def parse_chat_images(images: List[np.ndarray], match_name: str = "") -> Dict[st
 
     for o in obs:
         if consumed_card_obs is not None and o is consumed_card_obs:
+            continue
+        if 'suppressed_in_card_obs' in locals() and o in suppressed_in_card_obs:
             continue
 
         b = o["box"]
@@ -777,6 +830,10 @@ def parse_chat_images(images: List[np.ndarray], match_name: str = "") -> Dict[st
             continue
 
         if item["type"] == "liked_photo_pill":
+            # If top_photo_card is already present and covers this vertical zone, avoid duplicate photo card
+            if top_photo_card and (top_photo_card["y1"] - 40 <= item["box"]["pixelY"] <= top_photo_card["y2"] + 50):
+                continue
+
             # Extract photo card above pill
             pill_y = item["box"]["pixelY"]
             search_top = max(0, pill_y - 480)
@@ -784,6 +841,7 @@ def parse_chat_images(images: List[np.ndarray], match_name: str = "") -> Dict[st
             gray_reg = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY)
             non_white = np.where(gray_reg < 250)
             photo_url = ""
+            crop = np.empty((0, 0, 3), dtype=np.uint8)
             if len(non_white[0]) > 0:
                 card_y1 = search_top + int(non_white[0].min())
                 card_y2 = search_top + int(non_white[0].max())
@@ -795,6 +853,7 @@ def parse_chat_images(images: List[np.ndarray], match_name: str = "") -> Dict[st
                     photo_url = "data:image/jpeg;base64," + base64.b64encode(buf).decode("ascii")
 
             pill_text = item["text"]
+            is_recv_pill = "liked your" in pill_text.lower() or item["box"]["pixelX"] < w * 0.35
             pill_overlay = detect_pill_overlay_geometry(crop, item.get("box")) if crop.size > 0 else None
             pill_item = {
                 "type": "liked_photo",
@@ -1004,6 +1063,8 @@ class HingeTrackerHandler(SimpleHTTPRequestHandler):
 
 def run(port: int = 8080, enable_tunnel: bool = False, domain: str = DEFAULT_DOMAIN):
     server_address = ("", port)
+    import socketserver
+    socketserver.TCPServer.allow_reuse_address = True
     httpd = HTTPServer(server_address, HingeTrackerHandler)
 
     ngrok_proc = None

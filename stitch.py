@@ -168,6 +168,23 @@ def detect_static_margins(
     return top_crop, bottom_crop
 
 
+def remove_scrollbar_strip(img: np.ndarray) -> np.ndarray:
+    """
+    Cleanly remove vertical floating iOS/Android scrollbar artifacts along the right margin
+    by replacing the scrollbar strip (columns w-10 to w) with the adjacent background column (w-15).
+    """
+    if img is None or img.size == 0:
+        return img
+    h, w = img.shape[:2]
+    if w < 60:
+        return img
+    res = img.copy()
+    strip_w = max(10, int(round(w * 0.02)))
+    ref_col = max(0, w - strip_w - 5)
+    res[:, w - strip_w:] = np.repeat(res[:, ref_col:ref_col + 1], strip_w, axis=1)
+    return res
+
+
 def find_vertical_displacement(
     img_upper: np.ndarray,
     img_lower: np.ndarray,
@@ -176,6 +193,7 @@ def find_vertical_displacement(
     """
     Compute vertical displacement Δy (in pixels) of img_lower relative to img_upper
     by searching for the 1D vertical shift that minimizes Mean Absolute Difference (MAD).
+    Masks out the rightmost scrollbar margin so floating scrollbars do not bias displacement.
     """
     h_up, w_up = img_upper.shape[:2]
     h_low, w_low = img_lower.shape[:2]
@@ -184,6 +202,10 @@ def find_vertical_displacement(
         scale = w_up / float(w_low)
         img_lower = cv2.resize(img_lower, (w_up, int(h_low * scale)))
         h_low = img_lower.shape[0]
+
+    # Mask rightmost margin (~25px or 4.5% of width) where iOS scrollbars float
+    margin_x = max(20, int(round(w_up * 0.045)))
+    content_w = max(10, w_up - margin_x)
 
     gray_upper = cv2.cvtColor(img_upper, cv2.COLOR_BGR2GRAY) if len(img_upper.shape) == 3 else img_upper
     gray_lower = cv2.cvtColor(img_lower, cv2.COLOR_BGR2GRAY) if len(img_lower.shape) == 3 else img_lower
@@ -197,8 +219,8 @@ def find_vertical_displacement(
         overlap_h = min(h_up - dy, h_low)
         if overlap_h < min_overlap_px:
             continue
-        overlap_upper = gray_upper[dy:dy + overlap_h, :]
-        overlap_lower = gray_lower[0:overlap_h, :]
+        overlap_upper = gray_upper[dy:dy + overlap_h, :content_w]
+        overlap_lower = gray_lower[0:overlap_h, :content_w]
         if overlap_upper.shape[0] == 0 or overlap_lower.shape[0] == 0:
             continue
         diff = np.mean(np.abs(overlap_upper.astype(np.float32) - overlap_lower.astype(np.float32)))
@@ -262,10 +284,10 @@ def stitch_sequence(
         seq_top = int(np.median(pos_tops)) if pos_tops else 0
         seq_bottom = int(np.median(pos_bottoms)) if pos_bottoms else 0
 
-        # When a static header is auto-detected, trim 3 extra boundary pixels to cleanly
+        # When a static header is auto-detected, trim 7 extra boundary pixels to cleanly
         # remove navigation divider lines, active tab underlines, and anti-aliasing edges
         if crop_top is None and seq_top > 0:
-            seq_top += 3
+            seq_top += 7
 
         final_top = crop_top if crop_top is not None else seq_top
         final_bottom = crop_bottom if crop_bottom is not None else seq_bottom
@@ -313,7 +335,7 @@ def stitch_sequence(
     total_body_h = max(y_positions[i] + cropped_images[i].shape[0] for i in range(n))
     canvas = np.zeros((total_body_h, w, 3), dtype=np.uint8)
 
-    # Place each cropped image onto canvas with alpha seam blending at frame tops
+    # Place each cropped image onto canvas with smart seam selection (preferring neutral whitespace rows)
     for i in range(n):
         img_y = y_positions[i]
         img = cropped_images[i]
@@ -327,33 +349,76 @@ def stitch_sequence(
             prev_bottom = prev_y + prev_h
 
             if img_y < prev_bottom:
-                overlap_h = prev_bottom - img_y
-                actual_blend = min(blend_height, overlap_h)
+                overlap_start = img_y
+                overlap_end = prev_bottom
+                incoming_overlap_h = overlap_end - overlap_start
 
-                # Cross-fade blend at the top of incoming image (from img_y to img_y + actual_blend)
-                existing_strip = canvas[img_y : img_y + actual_blend, :]
-                incoming_strip = img[0 : actual_blend, :]
+                margin_x = max(20, int(round(w * 0.045)))
+                content_w = max(10, w - margin_x)
 
-                bh = min(existing_strip.shape[0], incoming_strip.shape[0])
-                if bh > 0:
-                    alpha = np.linspace(1.0, 0.0, bh)[:, np.newaxis, np.newaxis]
-                    blended = (existing_strip[:bh].astype(np.float32) * alpha +
-                               incoming_strip[:bh].astype(np.float32) * (1.0 - alpha)).astype(np.uint8)
-                    canvas[img_y : img_y + bh, :] = blended
+                prev_strip = canvas[overlap_start:overlap_end, :content_w]
+                incoming_strip = img[0:incoming_overlap_h, :content_w]
 
-                # Place remaining body of incoming image directly onto canvas below the blend zone
-                if bh < img_h:
-                    canvas[img_y + bh : img_y + img_h, :] = img[bh:]
+                g_prev = cv2.cvtColor(prev_strip, cv2.COLOR_BGR2GRAY) if len(prev_strip.shape) == 3 else prev_strip
+                g_inc = cv2.cvtColor(incoming_strip, cv2.COLOR_BGR2GRAY) if len(incoming_strip.shape) == 3 else incoming_strip
+
+                # Search for clean whitespace row between bubbles/cards
+                max_r = min(g_prev.shape[0], g_inc.shape[0])
+                search_start = min(15, max_r // 4)
+                search_end = max(search_start, max_r - 15)
+
+                white_rows = []
+                for r in range(search_start, search_end):
+                    if r < g_prev.shape[0] and r < g_inc.shape[0]:
+                        if np.min(g_prev[r]) >= 248 and np.min(g_inc[r]) >= 248:
+                            white_rows.append(r)
+
+                if white_rows:
+                    # Pick the clean white row (preserves previous card/bubble completely intact)
+                    chosen_r = white_rows[0]
+                    seam_canvas_y = overlap_start + chosen_r
+                    canvas[seam_canvas_y:img_y + img_h, :] = img[chosen_r:, :]
+                else:
+                    # Fallback: search for row of minimal difference and alpha blend
+                    best_diff = float('inf')
+                    best_r = 0
+                    for r in range(search_start, search_end):
+                        if r < g_prev.shape[0] and r < g_inc.shape[0]:
+                            diff = np.mean(np.abs(g_prev[r].astype(np.float32) - g_inc[r].astype(np.float32)))
+                            if diff < best_diff:
+                                best_diff = diff
+                                best_r = r
+
+                    actual_blend = min(blend_height, max_r - best_r)
+                    seam_start = overlap_start + best_r
+                    if actual_blend > 0:
+                        existing_strip = canvas[seam_start : seam_start + actual_blend, :]
+                        incoming_strip_zone = img[best_r : best_r + actual_blend, :]
+
+                        bh = min(existing_strip.shape[0], incoming_strip_zone.shape[0])
+                        if bh > 0:
+                            alpha = np.linspace(1.0, 0.0, bh)[:, np.newaxis, np.newaxis]
+                            blended = (existing_strip[:bh].astype(np.float32) * alpha +
+                                       incoming_strip_zone[:bh].astype(np.float32) * (1.0 - alpha)).astype(np.uint8)
+                            canvas[seam_start : seam_start + bh, :] = blended
+
+                        if best_r + bh < img_h:
+                            canvas[seam_start + bh : img_y + img_h, :] = img[best_r + bh:]
+                    else:
+                        canvas[seam_start : img_y + img_h, :] = img[best_r:]
             else:
                 canvas[img_y : img_y + img_h, :] = img
+
+    # Clean scrollbar artifacts on canvas
+    canvas = remove_scrollbar_strip(canvas)
 
     # Prepend header / append footer if requested
     final_components = []
     if header_strip is not None:
-        final_components.append(header_strip)
+        final_components.append(remove_scrollbar_strip(header_strip))
     final_components.append(canvas)
     if footer_strip is not None:
-        final_components.append(footer_strip)
+        final_components.append(remove_scrollbar_strip(footer_strip))
 
     if len(final_components) > 1:
         final_image = np.vstack(final_components)
