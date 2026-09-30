@@ -15,6 +15,7 @@ import subprocess
 import shutil
 import argparse
 import time
+import re
 import email.parser
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from typing import List, Dict, Any, Tuple, Optional
@@ -27,6 +28,23 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 VISION_BIN = os.path.join(BASE_DIR, "bin", "vision_ocr")
 NGROK_BIN = os.path.join(BASE_DIR, "bin", "ngrok")
 DEFAULT_DOMAIN = "subplot-sarcastic-yesterday.ngrok-free.dev"
+
+TIMESTAMP_REGEX = re.compile(
+    r"^(?:"
+    r"(?:Today|Yesterday)(?:,?\s+(?:at\s+)?\d{1,2}\s*:\s*\d{2}(?:\s*[AaPp]\.?[Mm]\.?)?)?"
+    r"|(?:(?:Mon|Tue|Tues|Wed|Thu|Thur|Thurs|Fri|Sat|Sun|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\.?,?\s+)?"
+    r"(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?|January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:,?\s+\d{4})?"
+    r"(?:,?\s+(?:at\s+)?\d{1,2}\s*:\s*\d{2}(?:\s*[AaPp]\.?[Mm]\.?)?)?"
+    r"|(?:Mon|Tue|Tues|Wed|Thu|Thur|Thurs|Fri|Sat|Sun|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\.?,?\s+(?:at\s+)?\d{1,2}\s*:\s*\d{2}(?:\s*[AaPp]\.?[Mm]\.?)?"
+    r"|\d{1,2}\s*:\s*\d{2}\s*[AaPp]\.?[Mm]\.?"
+    r")$",
+    re.IGNORECASE
+)
+
+
+def is_timestamp_text(text: str) -> bool:
+    """Return True if text matches standard Hinge app timestamp header formats."""
+    return bool(TIMESTAMP_REGEX.match(text.strip()))
 
 
 def compute_ahash(img_bgr: np.ndarray) -> str:
@@ -115,18 +133,14 @@ def parse_screenshot_image(img_bgr: np.ndarray) -> List[Dict[str, Any]]:
             if diff_above >= 1.5 and diff_below >= 1.5:
                 raw_candidates.append(y)
 
-    # Cluster divider lines within 20px
+    # Cluster divider lines within 25px
     clustered = []
     for y in raw_candidates:
-        if len(clustered) == 0 or y > clustered[-1] + 20:
+        if len(clustered) == 0 or y > clustered[-1] + 25:
             clustered.append(y)
 
-    # Filter by minimum row distance (18% of width)
-    min_row_dist = round(w * 0.18)
-    filtered_dividers = []
-    for y in clustered:
-        if len(filtered_dividers) == 0 or y - filtered_dividers[-1] >= min_row_dist:
-            filtered_dividers.append(y)
+    # Preserve all clustered divider lines; section headers and invalid rows are discarded by row height & avatar presence
+    filtered_dividers = list(clustered)
 
     # Add bottom boundary as final row end if sufficient height
     if len(filtered_dividers) > 0 and (bottom_boundary - filtered_dividers[-1]) >= round(w * 0.20):
@@ -191,12 +205,13 @@ def parse_screenshot_image(img_bgr: np.ndarray) -> List[Dict[str, Any]]:
 
         # Find match name from Apple Vision OCR observations
         match_name = f"Match {len(matches) + 1}"
-        for obs in ocr_data.get("observations", []):
+        row_observations = sorted(ocr_data.get("observations", []), key=lambda o: o["box"]["pixelY"])
+        for obs in row_observations:
             by = obs["box"]["pixelY"]
             bx = obs["box"]["pixelX"]
             text = obs["text"].strip()
-            # Bounding box must align with row
-            if top <= by <= top + int(row_h * 0.7) and 0.20 * w <= bx <= 0.50 * w:
+            # Bounding box must align with upper half of row
+            if top <= by <= top + int(row_h * 0.52) and 0.18 * w <= bx <= 0.55 * w:
                 clean = text.split("•")[0].strip()
                 if clean.startswith("Start the chat with "):
                     match_name = clean.replace("Start the chat with ", "").strip()
@@ -363,6 +378,47 @@ def detect_emojis(img: np.ndarray) -> List[Dict[str, Any]]:
     return detected
 
 
+def detect_pill_overlay_geometry(card_crop: np.ndarray, obs_box: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """
+    Detect the background pill geometry within the cropped photo card.
+    Uses contour segmentation on the distinct #f7ebe6 pill color, falling back
+    to Vision OCR text bounding box with standard Hinge horizontal padding.
+    Returns proportional width percentage (e.g. 76.6) and estimated pixel width.
+    """
+    if card_crop is None or card_crop.size == 0:
+        return None
+    ch, cw = card_crop.shape[:2]
+    text_w = obs_box.get("pixelWidth", 0) if obs_box else 0
+
+    # Baseline estimate with standard Hinge horizontal padding (~19px each side)
+    est_w = text_w + 38 if text_w > 0 else int(cw * 0.75)
+
+    # Try contour detection in the lower 45% of the photo card
+    sub = card_crop[int(ch * 0.55):, :]
+
+    # Beige mask: Hinge pill background is typically #f7ebe6 (approx BGR: 230, 235, 247)
+    lower = np.array([210, 215, 225])
+    upper = np.array([250, 255, 255])
+    mask = cv2.inRange(sub, lower, upper)
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    best_w = None
+    for c in contours:
+        x, y, w, h = cv2.boundingRect(c)
+        if w > max(80, text_w * 0.85) and w < cw * 0.98 and h > 18 and h < ch * 0.40:
+            best_w = w
+            break
+
+    # Add corner-coverage buffer (~36px) so overlay's border-radius curves past the underlying pill edges
+    final_w = (best_w if best_w is not None else est_w) + 36
+    width_pct = min(95.0, max(45.0, round((final_w / cw) * 100, 1)))
+
+    return {
+        "widthPct": width_pct,
+        "estimatedPx": int(final_w)
+    }
+
+
 def parse_chat_images(images: List[np.ndarray], match_name: str = "") -> Dict[str, Any]:
     """
     Parse Hinge chat messages from one or more screenshots:
@@ -428,7 +484,7 @@ def parse_chat_images(images: List[np.ndarray], match_name: str = "") -> Dict[st
         py = o["box"]["pixelY"]
         ph = o["box"]["pixelHeight"]
         t = o["text"].strip()
-        if py < h * 0.35 and any(day in t for day in ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")):
+        if py < h * 0.35 and (is_timestamp_text(t) or any(day in t for day in ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun", "Today", "Yesterday"))):
             search_y1 = max(search_y1, py + ph + 5)
             break
 
@@ -598,7 +654,7 @@ def parse_chat_images(images: List[np.ndarray], match_name: str = "") -> Dict[st
         if len(text) < 3 and not (text.isalnum() and (is_purple or is_grey or is_right_anchored)):
             continue
 
-        if re.search(r"^(Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\s+[A-Za-z]+\s+\d+", text) or re.search(r"^\d{1,2}:\d{2}\s*(?:AM|PM)", text, re.IGNORECASE):
+        if is_timestamp_text(text) and not is_purple and not is_right_anchored:
             msg_type = "timestamp"
         elif re.search(r"^Start the chat with\b", text, re.IGNORECASE) or lower == "start the chat":
             msg_type = "system_prompt"
@@ -631,7 +687,11 @@ def parse_chat_images(images: List[np.ndarray], match_name: str = "") -> Dict[st
             _, buf = cv2.imencode(".jpg", crop, [int(cv2.IMWRITE_JPEG_QUALITY), 88])
             photo_url = "data:image/jpeg;base64," + base64.b64encode(buf).decode("ascii")
 
-        classified.append({
+        pill_overlay = detect_pill_overlay_geometry(
+            crop,
+            consumed_card_obs["box"] if consumed_card_obs else None
+        )
+        photo_item = {
             "type": "liked_photo",
             "text": card_comment_text,
             "sender": card_direction,
@@ -642,7 +702,11 @@ def parse_chat_images(images: List[np.ndarray], match_name: str = "") -> Dict[st
                 "pixelWidth": top_photo_card["w"],
                 "pixelHeight": top_photo_card["h"]
             }
-        })
+        }
+        if pill_overlay:
+            photo_item["pillOverlay"] = pill_overlay
+
+        classified.append(photo_item)
         classified.sort(key=lambda item: item["box"]["pixelY"])
 
     # Detect and merge emojis into text lines
@@ -731,14 +795,17 @@ def parse_chat_images(images: List[np.ndarray], match_name: str = "") -> Dict[st
                     photo_url = "data:image/jpeg;base64," + base64.b64encode(buf).decode("ascii")
 
             pill_text = item["text"]
-            is_recv_pill = "liked your" in pill_text.lower() or item["box"]["pixelX"] < w * 0.35
-            grouped.append({
+            pill_overlay = detect_pill_overlay_geometry(crop, item.get("box")) if crop.size > 0 else None
+            pill_item = {
                 "type": "liked_photo",
                 "text": "Liked your photo" if is_recv_pill else pill_text,
                 "sender": "received" if is_recv_pill else "sent",
                 "image": photo_url,
                 "box": item["box"]
-            })
+            }
+            if pill_overlay:
+                pill_item["pillOverlay"] = pill_overlay
+            grouped.append(pill_item)
             continue
 
         if grouped and grouped[-1]["type"] == item["type"] and item["type"] in ("sent", "received"):
@@ -772,6 +839,8 @@ def parse_chat_images(images: List[np.ndarray], match_name: str = "") -> Dict[st
         if g["type"] == "liked_photo":
             m["image"] = g.get("image", "")
             m["sender"] = g.get("sender", "sent")
+            if "pillOverlay" in g:
+                m["pillOverlay"] = g["pillOverlay"]
         elif g["type"] == "sent" and "status" in g:
             m["status"] = g["status"]
         elif g["type"] == "received":

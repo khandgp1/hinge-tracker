@@ -613,15 +613,20 @@
 
     .liked-photo-pill {
       position: absolute;
-      bottom: -2px;
+      bottom: 0px;
       right: -2px;
+      height: 45px;
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       background: #f7ebe6;
       color: #111111;
       font-family: Georgia, "Times New Roman", serif;
       font-style: italic;
       font-size: 14px;
-      padding: 16px 28px;
-      min-width: 140px;
+      padding: 0 24px;
+      min-width: 220px;
       max-width: 90%;
       text-align: center;
       border-radius: 22px;
@@ -638,7 +643,7 @@
       display: flex;
       align-items: center;
       z-index: 5;
-      max-width: 100%;
+      max-width: none;
     }
 
     .liked-photo-avatar {
@@ -659,9 +664,10 @@
       bottom: auto;
       right: auto;
       left: auto;
-      padding: 0 38px 0 26px;
+      padding: 0 32px 0 26px;
       height: 45px;
-      min-width: 220px;
+      min-width: 230px;
+      white-space: nowrap;
       display: inline-flex;
       align-items: center;
       border-radius: 26px;
@@ -1691,9 +1697,11 @@
   <div id="profileView" class="tab-view profile-view" style="display: none;">
     <div class="profile-header-wrapper">
       <header class="header">
-        <button type="button" class="profile-title-btn" id="profileDropdownTrigger" aria-haspopup="true" aria-expanded="false" title="Switch Profile">
+        <button type="button" class="profile-title-btn" id="profileDropdownTrigger" aria-haspopup="true"
+          aria-expanded="false" title="Switch Profile">
           <h1 class="header-title" id="profileHeaderTitle">Profile 1</h1>
-          <svg class="profile-dropdown-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+          <svg class="profile-dropdown-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="6 9 12 15 18 9"></polyline>
           </svg>
         </button>
@@ -2085,6 +2093,8 @@
           `;
         } else if (item.type === 'liked_photo') {
           const isReceived = item.sender === 'received' || (item.text && item.text.toLowerCase().includes('liked your'));
+          const overlay = item.pillOverlay;
+          const overlayStyle = (overlay && overlay.widthPct) ? `min-width: ${overlay.widthPct}%; width: ${overlay.widthPct}%;` : '';
           if (isReceived) {
             const pillText = item.text || 'Liked your photo';
             return `
@@ -2092,7 +2102,7 @@
                 <img src="${item.image}" alt="Liked Photo" class="liked-photo-img">
                 <div class="liked-photo-pill-wrapper received">
                   <img src="${avatarSrc}" alt="${matchName}" class="liked-photo-avatar">
-                  <div class="liked-photo-pill received">${pillText}</div>
+                  <div class="liked-photo-pill received" ${overlayStyle ? `style="${overlayStyle}"` : ''}>${pillText}</div>
                 </div>
               </div>
             `;
@@ -2101,7 +2111,7 @@
             return `
               <div class="liked-photo-container sent">
                 <img src="${item.image}" alt="Liked Photo" class="liked-photo-img">
-                <div class="liked-photo-pill">${pillText}</div>
+                <div class="liked-photo-pill" ${overlayStyle ? `style="${overlayStyle}"` : ''}>${pillText}</div>
               </div>
             `;
           }
@@ -2529,6 +2539,7 @@
             if (item.type === 'liked_photo') {
               if (item.image) msgData.image = item.image;
               if (item.sender) msgData.sender = item.sender;
+              if (item.pillOverlay) msgData.pillOverlay = item.pillOverlay;
             }
             if (item.type === 'sent' && item.status) {
               msgData.status = item.status;
