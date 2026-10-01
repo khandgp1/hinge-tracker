@@ -16,6 +16,7 @@ import shutil
 import argparse
 import time
 import re
+import datetime
 import email.parser
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from typing import List, Dict, Any, Tuple, Optional
@@ -28,6 +29,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 VISION_BIN = os.path.join(BASE_DIR, "bin", "vision_ocr")
 NGROK_BIN = os.path.join(BASE_DIR, "bin", "ngrok")
 DEFAULT_DOMAIN = "subplot-sarcastic-yesterday.ngrok-free.dev"
+DEBUG_UPLOADS_DIR = os.path.join(BASE_DIR, "debug_uploads")
 
 TIMESTAMP_REGEX = re.compile(
     r"^(?:"
@@ -45,6 +47,163 @@ TIMESTAMP_REGEX = re.compile(
 def is_timestamp_text(text: str) -> bool:
     """Return True if text matches standard Hinge app timestamp header formats."""
     return bool(TIMESTAMP_REGEX.match(text.strip()))
+
+
+def get_file_birth_datetime(file_path: str) -> Optional[datetime.datetime]:
+    """Retrieve OS file creation/birth datetime (macOS st_birthtime fallback to st_mtime)."""
+    try:
+        st = os.stat(file_path)
+        birth = getattr(st, "st_birthtime", None)
+        if birth is not None and birth > 0:
+            return datetime.datetime.fromtimestamp(birth)
+        return datetime.datetime.fromtimestamp(st.st_mtime)
+    except Exception:
+        return None
+
+
+def detect_image_extension(image_bytes: bytes, fallback: str = ".png") -> str:
+    """Inspect magic bytes to detect image format extension."""
+    if image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    elif image_bytes.startswith(b"\xff\xd8\xff"):
+        return ".jpg"
+    elif image_bytes.startswith(b"GIF87a") or image_bytes.startswith(b"GIF89a"):
+        return ".gif"
+    elif image_bytes.startswith(b"RIFF") and len(image_bytes) >= 12 and image_bytes[8:12] == b"WEBP":
+        return ".webp"
+    return fallback
+
+
+def sanitize_filename(name: str) -> str:
+    """Sanitize filename to alphanumeric and safe characters."""
+    cleaned = re.sub(r"[^\w\-.]", "_", name.strip())
+    return cleaned.strip("._") or "upload"
+
+
+def save_debug_uploads(
+    image_bytes_list: List[bytes],
+    endpoint: str,
+    match_name: str = "",
+    files_meta: Optional[List[Dict[str, Any]]] = None,
+    file_names_list: Optional[List[str]] = None
+) -> List[str]:
+    """
+    Save received image uploads locally to debug_uploads/ for debugging and offline reproduction.
+    Guaranteed not to raise exceptions.
+    """
+    saved_paths = []
+    try:
+        now = datetime.datetime.now()
+        ts_str = now.strftime("%Y%m%d_%H%M%S")
+        category = "screenshots" if endpoint == "/api/parse-screenshot" else "chats"
+
+        target_dir = os.path.join(DEBUG_UPLOADS_DIR, category)
+        if category == "chats" and match_name:
+            target_dir = os.path.join(target_dir, sanitize_filename(match_name))
+        os.makedirs(target_dir, exist_ok=True)
+
+        meta_records = []
+        files_meta = files_meta or []
+        file_names_list = file_names_list or []
+
+        for i, img_bytes in enumerate(image_bytes_list):
+            orig_name = None
+            orig_lm = None
+            if i < len(files_meta):
+                orig_name = files_meta[i].get("name")
+                orig_lm = files_meta[i].get("lastModified")
+            elif i < len(file_names_list):
+                orig_name = file_names_list[i]
+
+            ext = detect_image_extension(img_bytes)
+            if orig_name:
+                base_clean = sanitize_filename(os.path.splitext(orig_name)[0])
+                orig_ext = os.path.splitext(orig_name)[1].lower()
+                if orig_ext in (".png", ".jpg", ".jpeg", ".webp", ".gif"):
+                    ext = orig_ext
+            else:
+                base_clean = f"img_{i+1:02d}"
+
+            prefix_parts = [ts_str]
+            if match_name and category != "chats":
+                prefix_parts.append(sanitize_filename(match_name))
+            prefix_parts.append(f"{i+1:02d}")
+            prefix_parts.append(base_clean)
+
+            filename = "_".join(prefix_parts) + ext
+            filepath = os.path.join(target_dir, filename)
+
+            with open(filepath, "wb") as f:
+                f.write(img_bytes)
+
+            saved_paths.append(filepath)
+            meta_records.append({
+                "saved_file": filename,
+                "saved_path": filepath,
+                "original_name": orig_name,
+                "last_modified": orig_lm,
+                "size_bytes": len(img_bytes)
+            })
+
+        meta_filename = f"{ts_str}_meta.json"
+        meta_path = os.path.join(target_dir, meta_filename)
+        meta_data = {
+            "timestamp": now.isoformat(),
+            "endpoint": endpoint,
+            "match_name": match_name,
+            "count": len(saved_paths),
+            "files": meta_records
+        }
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump(meta_data, f, indent=2)
+
+        rel_dir = os.path.relpath(target_dir, BASE_DIR)
+        print(f"[DEBUG_UPLOAD] Saved {len(saved_paths)} image(s) to {rel_dir}/ (meta: {meta_filename})")
+
+    except Exception as e:
+        print(f"[DEBUG_UPLOAD] Warning: Failed to save debug uploads: {e}")
+
+    return saved_paths
+
+
+def find_local_file_by_name(filename: str) -> Optional[str]:
+    """Search project debug_uploads/, test_chats/, and root directory for a file matching filename."""
+    if not filename:
+        return None
+    basename = os.path.basename(filename)
+    search_dirs = [
+        DEBUG_UPLOADS_DIR,
+        os.path.join(BASE_DIR, "test_chats"),
+        BASE_DIR
+    ]
+    for sdir in search_dirs:
+        if not os.path.exists(sdir):
+            continue
+        for root, _, files in os.walk(sdir):
+            if basename in files:
+                return os.path.join(root, basename)
+    return None
+
+
+def resolve_relative_timestamp(text: str, reference_dt: Optional[datetime.datetime] = None) -> str:
+    """
+    Replace relative prefixes 'Today' and 'Yesterday' with formatted date string
+    preserving original time: e.g. 'Today 7:10 PM' -> 'Tue, Sep 29 7:10 PM'.
+    """
+    if reference_dt is None:
+        reference_dt = datetime.datetime.now()
+
+    m = re.match(r"^(Today|Yesterday)(?:,?\s+(?:at\s+)?(.*))?$", text.strip(), re.IGNORECASE)
+    if not m:
+        return text
+
+    rel_word, time_part = m.group(1).lower(), m.group(2)
+    target_dt = reference_dt if rel_word == "today" else reference_dt - datetime.timedelta(days=1)
+    date_str = target_dt.strftime("%a, %b ") + str(target_dt.day)
+
+    if time_part and time_part.strip():
+        return f"{date_str} {time_part.strip()}"
+    return date_str
 
 
 def compute_ahash(img_bgr: np.ndarray) -> str:
@@ -291,6 +450,14 @@ EMOJI_TEMPLATES = {
     },
     "😏": {
         "file": os.path.join(BASE_DIR, "assets", "emojis", "smirk.png"),
+        "file_grey": os.path.join(BASE_DIR, "assets", "emojis", "smirk_grey.png"),
+        "base_width": 591,
+        "base_size": 28,
+        "threshold": 0.82
+    },
+    "🍿": {
+        "file": os.path.join(BASE_DIR, "assets", "emojis", "popcorn.png"),
+        "file_grey": os.path.join(BASE_DIR, "assets", "emojis", "popcorn_grey.png"),
         "base_width": 591,
         "base_size": 28,
         "threshold": 0.82
@@ -315,6 +482,9 @@ def detect_emojis(img: np.ndarray) -> List[Dict[str, Any]]:
         template = cv2.imread(template_path)
         if template is None:
             continue
+
+        grey_path = cfg.get("file_grey")
+        template_grey = cv2.imread(grey_path) if grey_path and os.path.exists(grey_path) else None
 
         base_w = cfg.get("base_width", 591)
         base_s = cfg.get("base_size", 28)
@@ -345,11 +515,17 @@ def detect_emojis(img: np.ndarray) -> List[Dict[str, Any]]:
             is_native_purple = (mean_corner[2] > mean_corner[1] + 7 and mean_corner[0] > mean_corner[1] + 7)
             comp_color = np.array([230, 230, 230], dtype=np.uint8) if is_native_purple else np.array([210, 188, 207], dtype=np.uint8)
 
-            comp_tmpl = scaled_tmpl.copy()
-            comp_tmpl[circle_mask == 0] = comp_color
+            templates_to_test = [scaled_tmpl]
+            if template_grey is not None:
+                scaled_grey = cv2.resize(template_grey, (sw, sh), interpolation=cv2.INTER_AREA if sc < 1.0 else cv2.INTER_CUBIC)
+                templates_to_test.append(scaled_grey)
+            else:
+                comp_tmpl = scaled_tmpl.copy()
+                comp_tmpl[circle_mask == 0] = comp_color
+                templates_to_test.append(comp_tmpl)
 
             # Match both native background and complementary bubble color variant
-            for v_tmpl in (scaled_tmpl, comp_tmpl):
+            for v_tmpl in templates_to_test:
                 res = cv2.matchTemplate(img, v_tmpl, cv2.TM_CCOEFF_NORMED)
                 y_indices, x_indices = np.where(res >= threshold)
 
@@ -442,7 +618,11 @@ def detect_pill_overlay_geometry(card_crop: np.ndarray, obs_box: Optional[Dict[s
     }
 
 
-def parse_chat_images(images: List[np.ndarray], match_name: str = "") -> Dict[str, Any]:
+def parse_chat_images(
+    images: List[np.ndarray],
+    match_name: str = "",
+    reference_datetime: Optional[datetime.datetime] = None
+) -> Dict[str, Any]:
     """
     Parse Hinge chat messages from one or more screenshots:
     1. If multiple images, stitch them into one continuous chat image using stitch_chat_frames.
@@ -452,6 +632,14 @@ def parse_chat_images(images: List[np.ndarray], match_name: str = "") -> Dict[st
     """
     if not images:
         raise ValueError("No images provided for chat parsing.")
+
+    if reference_datetime is None and match_name:
+        for candidate in (f"{match_name}_chat.jpg", f"{match_name}_Chat.png", f"{match_name}.jpg", f"{match_name}.png"):
+            found = find_local_file_by_name(candidate)
+            if found:
+                reference_datetime = get_file_birth_datetime(found)
+                if reference_datetime:
+                    break
 
     if len(images) > 1:
         stitched = stitch_chat_frames(images)
@@ -709,6 +897,7 @@ def parse_chat_images(images: List[np.ndarray], match_name: str = "") -> Dict[st
 
         if is_timestamp_text(text) and not is_purple and not is_right_anchored:
             msg_type = "timestamp"
+            text = resolve_relative_timestamp(text, reference_datetime)
         elif re.search(r"^Start the chat with\b", text, re.IGNORECASE) or lower == "start the chat":
             msg_type = "system_prompt"
         elif "liked" in lower and "photo" in lower:
@@ -964,6 +1153,8 @@ class HingeTrackerHandler(SimpleHTTPRequestHandler):
 
                 image_bytes_list = []
                 match_name = ""
+                files_meta = []
+                file_names_list = []
 
                 if "multipart/form-data" in content_type:
                     # Parse multipart body
@@ -983,10 +1174,13 @@ class HingeTrackerHandler(SimpleHTTPRequestHandler):
                                 payload = part.get_payload(decode=True)
                                 if payload:
                                     image_bytes_list.append(payload)
+                                    if filename:
+                                        file_names_list.append(filename)
 
                 elif "application/json" in content_type:
                     payload = json.loads(body.decode("utf-8"))
                     match_name = payload.get("matchName", "")
+                    files_meta = payload.get("files", [])
                     if "image" in payload:
                         raw_b64 = payload["image"].split(",")[-1]
                         image_bytes_list.append(base64.b64decode(raw_b64))
@@ -1001,6 +1195,15 @@ class HingeTrackerHandler(SimpleHTTPRequestHandler):
                 if not image_bytes_list:
                     self.send_error(400, "No image files received in request.")
                     return
+
+                # Save incoming image uploads locally for debugging
+                save_debug_uploads(
+                    image_bytes_list=image_bytes_list,
+                    endpoint=self.path,
+                    match_name=match_name,
+                    files_meta=files_meta,
+                    file_names_list=file_names_list
+                )
 
                 if self.path == "/api/parse-screenshot":
                     # Decode primary image for match list parsing
@@ -1031,7 +1234,40 @@ class HingeTrackerHandler(SimpleHTTPRequestHandler):
                         self.send_error(400, "Failed to decode any images.")
                         return
 
-                    resp = parse_chat_images(images, match_name)
+                    # Resolve reference datetime from OS metadata / client timestamp
+                    ref_dt = None
+                    for fm in files_meta:
+                        fname = fm.get("name", "")
+                        found_path = find_local_file_by_name(fname)
+                        if found_path:
+                            ref_dt = get_file_birth_datetime(found_path)
+                            if ref_dt:
+                                break
+                        lm = fm.get("lastModified")
+                        if lm:
+                            try:
+                                ref_dt = datetime.datetime.fromtimestamp(float(lm) / 1000.0)
+                                break
+                            except Exception:
+                                pass
+
+                    if not ref_dt:
+                        for fname in file_names_list:
+                            found_path = find_local_file_by_name(fname)
+                            if found_path:
+                                ref_dt = get_file_birth_datetime(found_path)
+                                if ref_dt:
+                                    break
+
+                    if not ref_dt and match_name:
+                        for candidate in (f"{match_name}_chat.jpg", f"{match_name}_Chat.png", f"{match_name}.jpg", f"{match_name}.png"):
+                            found_path = find_local_file_by_name(candidate)
+                            if found_path:
+                                ref_dt = get_file_birth_datetime(found_path)
+                                if ref_dt:
+                                    break
+
+                    resp = parse_chat_images(images, match_name, reference_datetime=ref_dt)
 
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")

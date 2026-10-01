@@ -2473,7 +2473,11 @@
             },
             body: JSON.stringify({
               matchName: currentActiveMatch ? currentActiveMatch.name : '',
-              images: base64Images
+              images: base64Images,
+              files: files.map(f => ({
+                name: f.name,
+                lastModified: f.lastModified
+              }))
             })
           });
 
