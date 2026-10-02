@@ -1719,8 +1719,38 @@
       color: #f2f2f7;
     }
 
-    .app-toast.info svg {
-      stroke: #a1a1aa;
+    /* ─── Coach Lock Splash Overlay ─────────────────────────────────────── */
+    .coach-splash-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 999999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.25s ease, visibility 0.25s ease;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .coach-splash-overlay.active {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: all;
+    }
+
+    .coach-splash-video {
+      width: min(340px, 82vw);
+      height: auto;
+      max-width: 360px;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border-radius: 24px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+      display: block;
     }
   </style>
 </head>
@@ -1934,6 +1964,11 @@
       <img src="assets/nav_profile.png" alt="Profile" class="nav-avatar" id="navAvatar">
     </div>
   </nav>
+
+  <!-- Coach Lock Splash Screen Overlay -->
+  <div id="coachSplashOverlay" class="coach-splash-overlay" aria-hidden="true">
+    <video id="coachSplashVideo" class="coach-splash-video" src="splash.mp4" playsinline muted loop preload="auto"></video>
+  </div>
 
   <script>
     // ─── Firebase Config & Database ───────────────────────────────────────────
@@ -3393,6 +3428,38 @@
     }
 
     initProfileSync();
+
+    // ─── Real-time Coach Lock / Splash Screen Sync ───────────────────────────────
+    function initCoachLockSync() {
+      if (currentRole !== 'coach') return;
+      const overlay = document.getElementById('coachSplashOverlay');
+      const video = document.getElementById('coachSplashVideo');
+      if (!overlay || !video || typeof db === 'undefined' || !db) return;
+
+      db.collection('settings').doc('coach_lock').onSnapshot((doc) => {
+        const isLocked = doc.exists && !!doc.data()?.locked;
+        if (isLocked) {
+          overlay.classList.add('active');
+          overlay.setAttribute('aria-hidden', 'false');
+          video.currentTime = 0;
+          const playPromise = video.play();
+          if (playPromise !== undefined) {
+            playPromise.catch((err) => {
+              console.warn('[CoachLock] Video autoplay prevented:', err);
+            });
+          }
+        } else {
+          overlay.classList.remove('active');
+          overlay.setAttribute('aria-hidden', 'true');
+          video.pause();
+          video.currentTime = 0;
+        }
+      }, (err) => {
+        console.warn('[CoachLock] Firestore listener warning:', err);
+      });
+    }
+
+    initCoachLockSync();
 
     // Mobile 60fps Synchronous Visual Viewport API Input Accessory Transformer
     let vpScheduled = false;
