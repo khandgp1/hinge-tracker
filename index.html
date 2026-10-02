@@ -125,6 +125,61 @@
       background: #fafafa;
     }
 
+    .beacon-indicator-wrap {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: auto;
+      flex-shrink: 0;
+      pointer-events: none;
+    }
+
+    .beacon-dot {
+      position: relative;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background-color: #701A51;
+      animation: beaconCorePulse 1.8s ease-in-out infinite;
+    }
+
+    .beacon-dot::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background-color: rgba(112, 26, 81, 0.45);
+      animation: beaconRippleWave 1.8s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+    }
+
+    @keyframes beaconCorePulse {
+      0%, 100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.15);
+      }
+    }
+
+    @keyframes beaconRippleWave {
+      0% {
+        width: 11px;
+        height: 11px;
+        opacity: 0.85;
+      }
+      100% {
+        width: 32px;
+        height: 32px;
+        opacity: 0;
+      }
+    }
+
     .avatar {
       width: 63px;
       height: 63px;
@@ -1992,19 +2047,39 @@
             `;
           }).join('');
 
-          // Dynamic unread count when collapsed
-          if (!isInitialLoad && sheetState === 'collapsed') {
-            const addedCoachDocs = snapshot.docChanges().filter(c => c.type === 'added' && c.doc.data().sender === 'coach');
-            if (addedCoachDocs.length > 0) {
-              coachUnreadCount += addedCoachDocs.length;
+          // Calculate unread count based on last read timestamp
+          const targetSender = currentRole === 'coach' ? 'client' : 'coach';
+          const activeMatchData = matchesData.find(m => m.name === match.name) || match;
+          const lastReadAt = currentRole === 'coach' ? activeMatchData.coachLastReadCoachAt : activeMatchData.clientLastReadCoachAt;
+
+          const unreadDocs = snapshot.docs.filter(doc => {
+            const d = doc.data();
+            return d.sender === targetSender && getMillis(d.ts) > getMillis(lastReadAt);
+          });
+
+          if (sheetState === 'collapsed') {
+            if (unreadDocs.length > 0) {
+              coachUnreadCount = unreadDocs.length;
               if (badge) {
                 badge.textContent = coachUnreadCount;
                 badge.style.display = 'inline-block';
               }
+            } else {
+              coachUnreadCount = 0;
+              if (badge) {
+                badge.textContent = '0';
+                badge.style.display = 'none';
+              }
             }
           } else if (sheetState === 'open') {
             coachUnreadCount = 0;
-            if (badge) badge.style.display = 'none';
+            if (badge) {
+              badge.textContent = '0';
+              badge.style.display = 'none';
+            }
+            if (activeMatchData) {
+              markCoachDialogueAsRead(activeMatchData);
+            }
           }
           isInitialLoad = false;
 
@@ -2013,6 +2088,65 @@
         }, (err) => {
           console.error('Firestore coach onSnapshot error:', err);
         });
+    }
+
+    function getMillis(val) {
+      if (!val) return 0;
+      if (typeof val.toMillis === 'function') return val.toMillis();
+      if (val.seconds) return val.seconds * 1000 + (val.nanoseconds ? Math.floor(val.nanoseconds / 1e6) : 0);
+      if (val instanceof Date) return val.getTime();
+      if (typeof val === 'number') return val;
+      if (typeof val === 'object' && !val.seconds && !val.toMillis) return Date.now();
+      const d = new Date(val);
+      return isNaN(d.getTime()) ? 0 : d.getTime();
+    }
+
+    async function updateMatchCoachStatus(matchName, updateData) {
+      if (!matchName) return;
+      try {
+        const localMatch = matchesData.find(m => m.name === matchName);
+        if (localMatch) {
+          Object.assign(localMatch, updateData);
+          renderMatchesList();
+          if (localMatch.id) {
+            await db.collection('matches').doc(localMatch.id).set(updateData, { merge: true });
+            return;
+          }
+        }
+        const snap = await db.collection('matches').where('name', '==', matchName).limit(1).get();
+        if (!snap.empty) {
+          await snap.docs[0].ref.set(updateData, { merge: true });
+        }
+      } catch (err) {
+        console.warn('[Firestore] Error updating match coach status:', err);
+      }
+    }
+
+    function markCoachDialogueAsRead(match) {
+      if (!match || !match.name) return;
+      const matchName = match.name;
+      if (currentRole === 'coach') {
+        updateMatchCoachStatus(matchName, {
+          coachLastReadCoachAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } else {
+        updateMatchCoachStatus(matchName, {
+          clientLastReadCoachAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+    }
+
+    function hasUnreadCoachMessage(match) {
+      if (!match) return false;
+      if (currentRole === 'coach') {
+        if (!match.lastClientMessageAt) return false;
+        if (!match.coachLastReadCoachAt) return true;
+        return getMillis(match.lastClientMessageAt) > getMillis(match.coachLastReadCoachAt);
+      } else {
+        if (!match.lastCoachMessageAt) return false;
+        if (!match.clientLastReadCoachAt) return true;
+        return getMillis(match.lastCoachMessageAt) > getMillis(match.clientLastReadCoachAt);
+      }
     }
 
     function toggleExpertSheet() {
@@ -2031,6 +2165,10 @@
           badge.style.display = 'none';
         }
         if (chatOverlay) chatOverlay.classList.add('sheet-open');
+
+        if (currentActiveMatch) {
+          markCoachDialogueAsRead(currentActiveMatch);
+        }
 
         const expertBody = document.getElementById('expertSheetBody');
         if (expertBody) {
@@ -2059,13 +2197,27 @@
       const text = (input.innerText || input.textContent || '').trim();
       if (!text) return;
 
+      const matchName = currentActiveMatch.name;
+
       // Write to active match's coachDialogue subcollection
-      db.collection('chats').doc(currentActiveMatch.name).collection('coachDialogue').add({
+      db.collection('chats').doc(matchName).collection('coachDialogue').add({
         sender: currentRole,
         name: currentName,
         text: text,
         ts: firebase.firestore.FieldValue.serverTimestamp()
       }).catch(err => console.error('Send error:', err));
+
+      if (currentRole === 'coach') {
+        updateMatchCoachStatus(matchName, {
+          lastCoachMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+          coachLastReadCoachAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } else {
+        updateMatchCoachStatus(matchName, {
+          lastClientMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+          clientLastReadCoachAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
 
       input.innerText = '';
       input.style.height = '';
@@ -2242,7 +2394,9 @@
         return;
       }
 
-      container.innerHTML = matchesData.map((item) => `
+      container.innerHTML = matchesData.map((item) => {
+        const hasUnread = hasUnreadCoachMessage(item);
+        return `
         <div class="match-row" data-name="${item.name}">
           <img class="avatar" src="${item.image}" alt="${item.name}">
           <div class="match-info">
@@ -2250,9 +2404,15 @@
               <span class="name">${item.name}</span>
             </div>
           </div>
+          ${hasUnread ? `
+            <div class="beacon-indicator-wrap" title="New coach advice">
+              <div class="beacon-dot"></div>
+            </div>
+          ` : ''}
         </div>
         <div class="divider-line"></div>
-      `).join('');
+      `;
+      }).join('');
 
       attachMatchRowClickListeners();
     }
@@ -2398,6 +2558,7 @@
       window.scrollTo(0, scrollRestoreY);
       const sheet = document.getElementById('expertBottomSheet');
       if (sheet) sheet.className = 'expert-sheet collapsed';
+      sheetState = 'collapsed';
     }
 
     // ─── Automated Chat Screenshot Upload & Ingestion Flow ─────────────
