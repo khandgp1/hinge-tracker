@@ -440,6 +440,880 @@
       -webkit-user-drag: none;
     }
 
+    /* ─── Profile Lineup Builder & Full-Screen Photo Gallery Styles ──────── */
+    .lineup-gallery-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%) translateZ(0);
+      width: 100%;
+      max-width: 390px;
+      height: 100%;
+      height: 100dvh;
+      background: #ffffff;
+      z-index: 220;
+      flex-direction: column;
+      box-sizing: border-box;
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
+
+    .lineup-gallery-overlay.active {
+      display: flex;
+    }
+
+    .lineup-gallery-header {
+      position: sticky;
+      top: 0;
+      background: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      height: 52px;
+      z-index: 230;
+      flex-shrink: 0;
+    }
+
+    .lineup-header-right-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .lineup-merge-action-btn {
+      color: #007aff !important;
+      font-weight: 700 !important;
+      transition: opacity 0.2s ease, color 0.2s ease;
+    }
+
+    .lineup-merge-action-btn:disabled {
+      color: #c7c7cc !important;
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    .lineup-next-action-btn {
+      color: #000000;
+      font-weight: 700 !important;
+      transition: opacity 0.2s ease, color 0.2s ease;
+    }
+
+    .lineup-next-action-btn:disabled {
+      color: #c7c7cc !important;
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    .lineup-gallery-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .lineup-gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .lineup-photo-thumb {
+      position: relative;
+      aspect-ratio: 4 / 5;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #f2f2f7;
+      cursor: pointer;
+      border: 2.5px solid transparent;
+      transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+      user-select: none;
+    }
+
+    .lineup-photo-thumb:active {
+      transform: scale(0.96);
+    }
+
+    .lineup-photo-thumb.is-selected {
+      border-color: #000000;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+    }
+
+    .lineup-photo-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .lineup-badge-number {
+      position: absolute;
+      top: 7px;
+      right: 7px;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #000000;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+      border: 2px solid #ffffff;
+      opacity: 0;
+      transform: scale(0.5);
+      transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+    }
+
+    .lineup-photo-thumb.is-selected .lineup-badge-number {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .lineup-version-pill {
+      position: absolute;
+      bottom: 7px;
+      left: 7px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 7px;
+      border-radius: 999px;
+      pointer-events: none;
+      letter-spacing: -0.01em;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+      border: 0.5px solid rgba(255, 255, 255, 0.25);
+      z-index: 2;
+    }
+
+    .lineup-organize-checkbox {
+      position: absolute;
+      top: 7px;
+      left: 7px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.4);
+      border: 2px solid #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+      transition: background 0.15s ease, transform 0.15s ease;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    .lineup-photo-thumb.is-organize-selected {
+      border-color: #007aff !important;
+      box-shadow: 0 4px 14px rgba(0, 122, 255, 0.25);
+    }
+
+    .lineup-photo-thumb.is-organize-selected .lineup-organize-checkbox {
+      background: #007aff;
+      border-color: #ffffff;
+    }
+
+    .lineup-photo-thumb.is-upload {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border: 1.5px dashed #c7c7cc;
+      background: #fafafa;
+      color: #000000;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .lineup-photo-thumb.is-upload:hover {
+      background: #f2f2f7;
+      border-color: #8e8e93;
+    }
+
+    .lineup-photo-thumb.is-upload span {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #666666;
+    }
+
+    .lineup-gallery-footer {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 14px 18px calc(14px + env(safe-area-inset-bottom, 0px));
+      background: #ffffff;
+      border-top: 1px solid #f0f0f0;
+      box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.04);
+    }
+
+    .lineup-gallery-footer-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .lineup-counter {
+      font-size: 14px;
+      font-weight: 700;
+      color: #111111;
+      letter-spacing: -0.01em;
+    }
+
+    .lineup-counter-hint {
+      font-size: 12px;
+      color: #8e8e93;
+      font-weight: 500;
+    }
+
+    .lineup-continue-action-btn {
+      width: 100%;
+      background: #000000;
+      color: #ffffff;
+      border: none;
+      border-radius: 25px;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.2s ease, transform 0.1s ease;
+      letter-spacing: -0.01em;
+    }
+
+    .lineup-continue-action-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .lineup-continue-action-btn:not(:disabled):active {
+      transform: scale(0.98);
+    }
+
+    /* Version Comparison Sheet Modal */
+    .version-sheet-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 260;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .version-sheet-overlay.active {
+      display: flex;
+    }
+
+    .version-sheet-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+
+    .version-sheet-overlay.active .version-sheet-backdrop {
+      opacity: 1;
+    }
+
+    .version-sheet-panel {
+      position: relative;
+      width: 100%;
+      max-width: 390px;
+      max-height: 92vh;
+      background: #ffffff;
+      border-radius: 20px 20px 0 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.25);
+      z-index: 2;
+    }
+
+    .version-sheet-overlay.active .version-sheet-panel {
+      transform: translateY(0);
+    }
+
+    .version-sheet-drag-handle {
+      width: 36px;
+      height: 4.5px;
+      background: #d1d1d6;
+      border-radius: 3px;
+      margin: 8px auto 2px;
+      flex-shrink: 0;
+    }
+
+    .version-sheet-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 16px 10px;
+      border-bottom: 1px solid #f0f0f0;
+      flex-shrink: 0;
+    }
+
+    .version-sheet-icon-btn {
+      background: #f2f2f7;
+      border: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #333333;
+      transition: background 0.15s ease;
+    }
+
+    .version-sheet-icon-btn:hover {
+      background: #e5e5ea;
+    }
+
+    .version-sheet-title-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+    }
+
+    .version-sheet-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #000000;
+      margin: 0;
+      letter-spacing: -0.01em;
+    }
+
+    .version-sheet-counter {
+      font-size: 11.5px;
+      color: #8e8e93;
+      font-weight: 600;
+    }
+
+    .version-sheet-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .version-hero-preview-container {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 5;
+      max-height: 40vh;
+      background: #1c1c1e;
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    }
+
+    .version-hero-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .version-hero-cover-tag {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 0.5px solid rgba(255, 255, 255, 0.3);
+      letter-spacing: -0.01em;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .version-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 32px;
+    }
+
+    .version-label-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #f2f2f7;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #1c1c1e;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .version-label-pill:hover {
+      background: #e5e5ea;
+      border-color: #d1d1d6;
+    }
+
+    .version-label-input {
+      font-size: 13px;
+      font-weight: 600;
+      color: #000000;
+      text-align: center;
+      padding: 5px 12px;
+      border-radius: 999px;
+      border: 1.5px solid #000000;
+      background: #ffffff;
+      outline: none;
+      width: 180px;
+      box-sizing: border-box;
+    }
+
+    .version-scrubber-section {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .version-scrubber-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #8e8e93;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .version-scrubber-track {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 4px 2px 8px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .version-scrubber-thumb {
+      position: relative;
+      flex-shrink: 0;
+      width: 60px;
+      height: 75px;
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      border: 2px solid transparent;
+      background: #f2f2f7;
+      transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .version-scrubber-thumb:active {
+      transform: scale(0.95);
+    }
+
+    .version-scrubber-thumb.active {
+      border-color: #000000;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.22);
+    }
+
+    .version-scrubber-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .version-scrubber-thumb.is-add {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      border: 1.5px dashed #c7c7cc;
+      background: #fafafa;
+      color: #666666;
+    }
+
+    .version-scrubber-thumb.is-add:hover {
+      background: #f2f2f7;
+      border-color: #8e8e93;
+    }
+
+    .version-scrubber-thumb.is-add span {
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .version-actions-bar {
+      display: flex;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .version-action-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 9px 4px;
+      background: #f2f2f7;
+      border: none;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #111111;
+      cursor: pointer;
+      transition: background 0.15s ease, opacity 0.15s ease;
+    }
+
+    .version-action-btn:hover:not(:disabled) {
+      background: #e5e5ea;
+    }
+
+    .version-action-btn.is-danger {
+      color: #ff3b30;
+    }
+
+    .version-action-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .version-sheet-footer {
+      flex-shrink: 0;
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+      background: #ffffff;
+      border-top: 1px solid #f0f0f0;
+    }
+
+    .version-sheet-footer .lineup-continue-action-btn.is-remove-action {
+      background: #f2f2f7;
+      color: #ff3b30;
+      border: 1.5px solid #ff3b30;
+    }
+
+    /* Lineup Sandbox / Builder View */
+    .lineup-sandbox-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%) translateZ(0);
+      width: 100%;
+      max-width: 390px;
+      height: 100%;
+      height: 100dvh;
+      background: #ffffff;
+      z-index: 200;
+      flex-direction: column;
+      box-sizing: border-box;
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
+
+    .lineup-sandbox-overlay.active {
+      display: flex;
+    }
+
+    .lineup-sandbox-header {
+      position: sticky;
+      top: 0;
+      background: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      height: 52px;
+      z-index: 210;
+      flex-shrink: 0;
+    }
+
+    .lineup-nav-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 6px;
+      margin-left: -6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      color: #000000;
+      transition: background 0.15s ease;
+    }
+
+    .lineup-nav-btn:active {
+      background: rgba(0, 0, 0, 0.08);
+    }
+
+    .lineup-header-title {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #000000;
+    }
+
+    .lineup-text-action-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+      color: #000000;
+      padding: 6px 10px;
+      margin-right: -6px;
+      border-radius: 8px;
+      transition: background 0.15s ease;
+    }
+
+    .lineup-text-action-btn:active {
+      background: rgba(0, 0, 0, 0.06);
+    }
+
+    .lineup-mode-bar {
+      padding: 6px 16px 10px;
+      background: #ffffff;
+      display: flex;
+      justify-content: center;
+    }
+
+    .lineup-segmented-control {
+      display: flex;
+      background: #f0f0f2;
+      padding: 3px;
+      border-radius: 10px;
+      width: 100%;
+      max-width: 320px;
+    }
+
+    .lineup-mode-tab {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border: none;
+      background: transparent;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #666666;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+      user-select: none;
+    }
+
+    .lineup-mode-tab.active {
+      background: #ffffff;
+      color: #000000;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+    }
+
+    .lineup-sandbox-body {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 28px;
+    }
+
+    .lineup-grid-view {
+      padding: 14px 16px;
+    }
+
+    .lineup-grid-help {
+      font-size: 12.5px;
+      color: #8e8e93;
+      text-align: center;
+      margin-bottom: 14px;
+    }
+
+    .lineup-slots-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .lineup-slot-card {
+      position: relative;
+      background: #ffffff;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      border: 1px solid #ebebeb;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .lineup-slot-photo-wrapper {
+      position: relative;
+      aspect-ratio: 4 / 5;
+      width: 100%;
+      background: #f2f2f7;
+      overflow: hidden;
+    }
+
+    .lineup-slot-photo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .lineup-slot-badge {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: rgba(0, 0, 0, 0.72);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 7px;
+      border-radius: 6px;
+      letter-spacing: 0.02em;
+    }
+
+    .lineup-primary-tag {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      background: #701A51;
+      color: #ffffff;
+      font-size: 9.5px;
+      font-weight: 700;
+      padding: 3px 6px;
+      border-radius: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+    }
+
+    .lineup-slot-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      background: #ffffff;
+      border-top: 1px solid #f0f0f0;
+    }
+
+    .lineup-reorder-btn {
+      background: #f2f2f7;
+      border: none;
+      border-radius: 6px;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #1c1c1e;
+      transition: background 0.12s ease, transform 0.1s ease;
+    }
+
+    .lineup-reorder-btn:disabled {
+      opacity: 0.22;
+      cursor: not-allowed;
+    }
+
+    .lineup-reorder-btn:not(:disabled):active {
+      background: #e5e5ea;
+      transform: scale(0.92);
+    }
+
+    .lineup-slot-index-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #3a3a3c;
+    }
+
+    /* Live Feed View */
+    .lineup-feed-view {
+      padding: 14px 16px 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .lineup-feed-card {
+      position: relative;
+      background: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+      border: 1px solid #ebebeb;
+    }
+
+    .lineup-feed-card-photo {
+      width: 100%;
+      display: block;
+      aspect-ratio: 4 / 5;
+      object-fit: cover;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .lineup-feed-badge {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 9px;
+      border-radius: 20px;
+      letter-spacing: 0.03em;
+    }
+
+    .lineup-feed-primary-label {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: #701A51;
+      color: #ffffff;
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 6px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+
     .nav-avatar {
       width: 32px;
       height: 32px;
@@ -1791,6 +2665,15 @@
           </svg>
         </button>
 
+        <button id="openLineupBuilderBtn" class="header-action-btn" aria-label="Build Lineup"
+          title="Build 6-Photo Lineup">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2.3"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        </button>
+
         <div id="profileDropdownMenu" class="profile-dropdown-menu" role="menu" aria-label="Select Profile"></div>
       </header>
       <div id="profileDropdownBackdrop" class="profile-dropdown-backdrop"></div>
@@ -1825,6 +2708,172 @@
         <div class="import-modal-footer">
           <button id="importConfirmBtn" class="import-confirm-btn" disabled>Import Matches</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Photo Gallery Full-Screen Selector -->
+  <div id="lineupGalleryModal" class="lineup-gallery-overlay">
+    <div class="lineup-gallery-header">
+      <button id="lineupGalleryCancelBtn" class="lineup-text-action-btn">Cancel</button>
+      <h2 class="lineup-header-title" id="lineupGalleryTitle">Select 6 Photos</h2>
+      <div class="lineup-header-right-actions">
+        <button id="lineupGalleryOrganizeBtn" class="lineup-text-action-btn" title="Group multiple photos into a stack">Organize</button>
+        <button id="lineupGalleryMergeBtn" class="lineup-text-action-btn lineup-merge-action-btn" style="display:none;" disabled>Merge</button>
+        <button id="lineupGalleryNextBtn" class="lineup-text-action-btn lineup-next-action-btn" disabled>Next</button>
+      </div>
+    </div>
+    <div class="divider-line"></div>
+
+    <div class="lineup-gallery-body" id="lineupGalleryBody">
+      <div class="lineup-gallery-grid" id="lineupGalleryGrid"></div>
+      <input type="file" id="lineupPhotoFileInput" accept="image/*" style="display:none">
+    </div>
+
+    <div class="lineup-gallery-footer" id="lineupGalleryFooter">
+      <div class="lineup-gallery-footer-info">
+        <div class="lineup-counter" id="lineupSelectCounter">0 of 6 selected</div>
+        <div class="lineup-counter-hint" id="lineupSelectHint">Tap to select or deselect</div>
+      </div>
+      <button id="lineupContinueBtn" class="lineup-continue-action-btn" disabled>Continue to Lineup</button>
+    </div>
+  </div>
+
+  <!-- Version Comparison Sheet Modal -->
+  <div id="versionComparisonSheet" class="version-sheet-overlay">
+    <div class="version-sheet-backdrop" id="versionSheetBackdrop"></div>
+    <div class="version-sheet-panel">
+      <div class="version-sheet-drag-handle"></div>
+
+      <!-- Sheet Header -->
+      <div class="version-sheet-header">
+        <button id="versionSheetCloseBtn" class="version-sheet-icon-btn" aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+        <div class="version-sheet-title-wrap">
+          <h3 class="version-sheet-title">Photo Versions</h3>
+          <span class="version-sheet-counter" id="versionSheetCounter">1 of 1</span>
+        </div>
+        <button id="versionSheetDoneBtn" class="lineup-text-action-btn" style="font-weight:700;">Done</button>
+      </div>
+
+      <div class="version-sheet-body">
+        <!-- Hero Preview Area -->
+        <div class="version-hero-preview-container">
+          <img id="versionHeroImg" src="" alt="Variant Preview" class="version-hero-img">
+          <div class="version-hero-cover-tag" id="versionHeroCoverTag" style="display:none;">
+            ★ Primary Cover
+          </div>
+        </div>
+
+        <!-- Variant Label & Status Row -->
+        <div class="version-label-row">
+          <div class="version-label-pill" id="versionLabelPill" role="button" tabindex="0" title="Tap to rename version">
+            <span id="versionLabelText">Version 1 — Original</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </div>
+          <input type="text" id="versionLabelInput" class="version-label-input" maxlength="24" style="display:none;" placeholder="e.g. Tight Crop">
+        </div>
+
+        <!-- Horizontal Thumbnail Scrubber -->
+        <div class="version-scrubber-section">
+          <div class="version-scrubber-title">All Versions in Stack</div>
+          <div class="version-scrubber-track" id="versionScrubberTrack">
+            <!-- Dynamic thumbnails inserted by JS -->
+          </div>
+          <input type="file" id="versionVariantFileInput" accept="image/*" style="display:none;">
+        </div>
+
+        <!-- Version Action Bar -->
+        <div class="version-actions-bar">
+          <button id="versionSetCoverBtn" class="version-action-btn" title="Set this version as the gallery cover">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+            <span>Set Cover</span>
+          </button>
+
+          <button id="versionDetachBtn" class="version-action-btn" title="Detach this variant into a separate photo">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="13" height="13" rx="2" ry="2"></rect>
+              <polyline points="9 21 21 21 21 9"></polyline>
+            </svg>
+            <span>Detach</span>
+          </button>
+
+          <button id="versionDeleteBtn" class="version-action-btn is-danger" title="Delete this version">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            <span>Delete</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Lineup Action Footer -->
+      <div class="version-sheet-footer">
+        <button id="versionSelectForLineupBtn" class="lineup-continue-action-btn">
+          Select for Lineup
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lineup Sandbox / Builder View -->
+  <div id="lineupSandboxView" class="lineup-sandbox-overlay">
+    <div class="lineup-sandbox-header">
+      <button id="lineupBackBtn" class="lineup-nav-btn" aria-label="Back">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      </button>
+      <h2 class="lineup-header-title">Profile Lineup</h2>
+      <button id="lineupEditPhotosBtn" class="lineup-text-action-btn">Photos</button>
+    </div>
+
+    <!-- Segmented Mode Control -->
+    <div class="lineup-mode-bar">
+      <div class="lineup-segmented-control" role="tablist">
+        <button id="lineupModeGridBtn" class="lineup-mode-tab active" role="tab" aria-selected="true">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span>Grid Reorder</span>
+        </button>
+        <button id="lineupModeFeedBtn" class="lineup-mode-tab" role="tab" aria-selected="false">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+          <span>Live Feed</span>
+        </button>
+      </div>
+    </div>
+    <div class="divider-line"></div>
+
+    <!-- Scrollable Content Area -->
+    <div class="lineup-sandbox-body" id="lineupSandboxBody">
+      <!-- Mode 1: 2x3 Grid Reorder -->
+      <div id="lineupGridView" class="lineup-grid-view">
+        <div class="lineup-grid-help">Tap arrows to swap photo order or set your primary photo</div>
+        <div class="lineup-slots-grid" id="lineupSlotsGrid"></div>
+      </div>
+
+      <!-- Mode 2: Live Feed Preview -->
+      <div id="lineupFeedView" class="lineup-feed-view" style="display: none;">
+        <div class="lineup-feed-cards" id="lineupFeedCards"></div>
       </div>
     </div>
   </div>
@@ -3428,6 +4477,1190 @@
     }
 
     initProfileSync();
+
+    // ─── 6-Photo Profile Lineup Builder & Photo Stacks Sandbox ────────────────
+    const DEFAULT_LINEUP_PHOTOS = [
+      'profile/01.jpg',
+      'profile/02.jpg',
+      'profile/03.jpg',
+      'profile/04.png',
+      'profile/05.jpg'
+    ];
+
+    let customGalleryPhotos = [];
+    try {
+      const storedCustom = localStorage.getItem('hinge_custom_photos');
+      if (storedCustom) customGalleryPhotos = JSON.parse(storedCustom);
+    } catch (e) {
+      customGalleryPhotos = [];
+    }
+
+    let activeLineupSlots = DEFAULT_LINEUP_PHOTOS.length >= 6
+      ? DEFAULT_LINEUP_PHOTOS.slice(0, 6)
+      : [...DEFAULT_LINEUP_PHOTOS, DEFAULT_LINEUP_PHOTOS[0]];
+    try {
+      const storedSlots = localStorage.getItem('hinge_profile_lineup');
+      if (storedSlots) {
+        const parsed = JSON.parse(storedSlots);
+        if (Array.isArray(parsed) && parsed.length === 6) {
+          activeLineupSlots = parsed;
+        }
+      }
+    } catch (e) {
+      activeLineupSlots = [...DEFAULT_LINEUP_PHOTOS, DEFAULT_LINEUP_PHOTOS[0]];
+    }
+
+    let galleryStacks = [];
+    let isOrganizeMode = false;
+    let organizeSelectedStackIds = new Set();
+    let activeSheetStackId = null;
+    let activeSheetVersionIndex = 0;
+
+    let pendingGallerySelection = [];
+    let currentLineupMode = 'grid'; // 'grid' | 'feed'
+    let isLineupSandboxOpen = false;
+    let isGalleryModalOpen = false;
+
+    function loadAndMigrateGalleryStacks() {
+      let loaded = null;
+      try {
+        const stored = localStorage.getItem('hinge_gallery_stacks');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            loaded = parsed;
+          }
+        }
+      } catch (e) {
+        console.warn('[Lineup] Failed to load hinge_gallery_stacks:', e);
+      }
+
+      if (loaded) {
+        galleryStacks = loaded;
+      } else {
+        galleryStacks = [];
+
+        // 1. Migrate custom photos if any
+        if (Array.isArray(customGalleryPhotos) && customGalleryPhotos.length > 0) {
+          customGalleryPhotos.forEach((src, idx) => {
+            const vId = 'v_c_' + Date.now() + '_' + idx;
+            galleryStacks.push({
+              id: 'stack_c_' + Date.now() + '_' + idx,
+              coverVersionId: vId,
+              versions: [{
+                id: vId,
+                src: src,
+                label: 'Original',
+                createdAt: Date.now()
+              }],
+              createdAt: Date.now()
+            });
+          });
+        }
+
+        // 2. Default library photos
+        DEFAULT_LINEUP_PHOTOS.forEach((src, idx) => {
+          const vId = 'v_def_' + (idx + 1);
+          galleryStacks.push({
+            id: 'stack_def_' + (idx + 1),
+            coverVersionId: vId,
+            versions: [{
+              id: vId,
+              src: src,
+              label: 'Original',
+              createdAt: Date.now()
+            }],
+            createdAt: Date.now()
+          });
+        });
+
+        try {
+          localStorage.setItem('hinge_gallery_stacks', JSON.stringify(galleryStacks));
+        } catch (e) {}
+      }
+    }
+
+    function getStackCoverVersion(stack) {
+      if (!stack || !Array.isArray(stack.versions) || stack.versions.length === 0) {
+        return { id: '', src: '', label: 'Unknown' };
+      }
+      return stack.versions.find(v => v.id === stack.coverVersionId) || stack.versions[0];
+    }
+
+    async function saveGalleryStacks(syncToFirestore = true) {
+      try {
+        localStorage.setItem('hinge_gallery_stacks', JSON.stringify(galleryStacks));
+      } catch (err) {
+        console.warn('[Lineup] LocalStorage stacks save warning:', err);
+      }
+
+      // Keep customGalleryPhotos synchronized for legacy listeners
+      customGalleryPhotos = [];
+      galleryStacks.forEach(s => {
+        s.versions.forEach(v => {
+          if (v.src && v.src.startsWith('data:') && !customGalleryPhotos.includes(v.src)) {
+            customGalleryPhotos.push(v.src);
+          }
+        });
+      });
+      if (customGalleryPhotos.length > 12) {
+        customGalleryPhotos = customGalleryPhotos.slice(0, 12);
+      }
+      try {
+        localStorage.setItem('hinge_custom_photos', JSON.stringify(customGalleryPhotos));
+      } catch (e) {}
+
+      if (syncToFirestore) {
+        saveLineupToFirestoreAndLocal(true);
+      }
+    }
+
+    function toggleOrganizeMode(enable) {
+      isOrganizeMode = typeof enable === 'boolean' ? enable : !isOrganizeMode;
+      organizeSelectedStackIds.clear();
+
+      const titleEl = document.getElementById('lineupGalleryTitle');
+      const cancelBtn = document.getElementById('lineupGalleryCancelBtn');
+      const organizeBtn = document.getElementById('lineupGalleryOrganizeBtn');
+      const mergeBtn = document.getElementById('lineupGalleryMergeBtn');
+      const nextBtn = document.getElementById('lineupGalleryNextBtn');
+      const footer = document.getElementById('lineupGalleryFooter');
+
+      if (isOrganizeMode) {
+        if (titleEl) titleEl.textContent = 'Select photos to group';
+        if (cancelBtn) cancelBtn.textContent = 'Done';
+        if (organizeBtn) organizeBtn.style.display = 'none';
+        if (mergeBtn) {
+          mergeBtn.style.display = 'inline-block';
+          mergeBtn.textContent = 'Merge (0)';
+          mergeBtn.disabled = true;
+        }
+        if (nextBtn) nextBtn.style.display = 'none';
+        if (footer) footer.style.display = 'none';
+      } else {
+        if (titleEl) titleEl.textContent = 'Select 6 Photos';
+        if (cancelBtn) cancelBtn.textContent = 'Cancel';
+        if (organizeBtn) organizeBtn.style.display = 'inline-block';
+        if (mergeBtn) mergeBtn.style.display = 'none';
+        if (nextBtn) nextBtn.style.display = 'inline-block';
+        if (footer) footer.style.display = 'flex';
+      }
+
+      renderGalleryGrid();
+    }
+
+    function toggleOrganizeSelection(stackId) {
+      if (organizeSelectedStackIds.has(stackId)) {
+        organizeSelectedStackIds.delete(stackId);
+      } else {
+        organizeSelectedStackIds.add(stackId);
+      }
+
+      const count = organizeSelectedStackIds.size;
+      const mergeBtn = document.getElementById('lineupGalleryMergeBtn');
+      if (mergeBtn) {
+        mergeBtn.textContent = `Merge (${count})`;
+        mergeBtn.disabled = count < 2;
+      }
+
+      renderGalleryGrid();
+    }
+
+    function mergeSelectedStacks() {
+      if (organizeSelectedStackIds.size < 2) return;
+
+      const selectedIds = Array.from(organizeSelectedStackIds);
+      const stacksToMerge = galleryStacks.filter(s => selectedIds.includes(s.id));
+      if (stacksToMerge.length < 2) return;
+
+      const targetStack = stacksToMerge[0];
+      const mergedStacks = stacksToMerge.slice(1);
+
+      mergedStacks.forEach((stack, sIdx) => {
+        stack.versions.forEach((ver, vIdx) => {
+          const newVId = `v_${Date.now()}_m${sIdx}_${vIdx}`;
+          targetStack.versions.push({
+            id: newVId,
+            src: ver.src,
+            label: ver.label && ver.label !== 'Original' ? ver.label : `Version ${targetStack.versions.length + 1}`,
+            createdAt: Date.now()
+          });
+        });
+      });
+
+      const mergedIdSet = new Set(mergedStacks.map(s => s.id));
+      galleryStacks = galleryStacks.filter(s => !mergedIdSet.has(s.id));
+
+      // Ensure no multiple versions from merged stack remain in lineup
+      const allTargetSrcs = targetStack.versions.map(v => v.src);
+      let firstFound = false;
+      pendingGallerySelection = pendingGallerySelection.filter(src => {
+        if (allTargetSrcs.includes(src)) {
+          if (!firstFound) {
+            firstFound = true;
+            return true;
+          }
+          return false;
+        }
+        return true;
+      });
+
+      saveGalleryStacks(true);
+      toggleOrganizeMode(false);
+      updateGallerySelectionUI();
+    }
+
+    function renderGalleryGrid() {
+      const grid = document.getElementById('lineupGalleryGrid');
+      if (!grid) return;
+
+      let html = '';
+
+      if (!isOrganizeMode) {
+        html += `
+          <div class="lineup-photo-thumb is-upload" id="lineupUploadTile" role="button" tabindex="0" title="Upload Photo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span>Upload</span>
+          </div>
+        `;
+      }
+
+      galleryStacks.forEach(stack => {
+        const cover = getStackCoverVersion(stack);
+        const selectedVer = stack.versions.find(v => pendingGallerySelection.includes(v.src));
+        const isSelected = !!selectedVer;
+        const selIdx = isSelected ? pendingGallerySelection.indexOf(selectedVer.src) : -1;
+        const badgeNum = isSelected ? selIdx + 1 : '';
+        const isOrganizeChecked = organizeSelectedStackIds.has(stack.id);
+        const hasMultiple = stack.versions.length >= 2;
+
+        const versionPillHtml = hasMultiple ? `
+          <div class="lineup-version-pill" title="${stack.versions.length} versions in this stack">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="3" y="3" width="13" height="13" rx="2"></rect>
+              <polyline points="9 21 21 21 21 9"></polyline>
+            </svg>
+            <span>${stack.versions.length}</span>
+          </div>
+        ` : '';
+
+        const checkboxHtml = isOrganizeMode ? `
+          <div class="lineup-organize-checkbox">
+            ${isOrganizeChecked ? `
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            ` : ''}
+          </div>
+        ` : '';
+
+        html += `
+          <div class="lineup-photo-thumb ${isSelected ? 'is-selected' : ''} ${isOrganizeChecked ? 'is-organize-selected' : ''}" 
+               data-stack-id="${stack.id}" 
+               data-photo-src="${cover.src}" 
+               role="button" 
+               tabindex="0">
+            <img src="${cover.src}" alt="Candidate Photo" loading="lazy">
+            <div class="lineup-badge-number">${badgeNum}</div>
+            ${versionPillHtml}
+            ${checkboxHtml}
+          </div>
+        `;
+      });
+
+      grid.innerHTML = html;
+
+      const uploadTile = document.getElementById('lineupUploadTile');
+      const fileInput = document.getElementById('lineupPhotoFileInput');
+      if (uploadTile && fileInput) {
+        uploadTile.onclick = () => fileInput.click();
+      }
+
+      grid.querySelectorAll('.lineup-photo-thumb:not(.is-upload)').forEach(thumb => {
+        const stackId = thumb.getAttribute('data-stack-id');
+        const stack = galleryStacks.find(s => s.id === stackId);
+        if (!stack) return;
+
+        let pressTimer = null;
+        let isLongPress = false;
+
+        const startPress = () => {
+          isLongPress = false;
+          pressTimer = setTimeout(() => {
+            isLongPress = true;
+            if (!isOrganizeMode) {
+              openVersionComparisonSheet(stack.id);
+            }
+          }, 500);
+        };
+
+        const cancelPress = () => {
+          if (pressTimer) {
+            clearTimeout(pressTimer);
+            pressTimer = null;
+          }
+        };
+
+        thumb.addEventListener('touchstart', startPress, { passive: true });
+        thumb.addEventListener('touchend', cancelPress, { passive: true });
+        thumb.addEventListener('touchmove', cancelPress, { passive: true });
+        thumb.addEventListener('mousedown', startPress);
+        thumb.addEventListener('mouseup', cancelPress);
+        thumb.addEventListener('mouseleave', cancelPress);
+
+        thumb.onclick = (e) => {
+          if (isLongPress) {
+            isLongPress = false;
+            return;
+          }
+
+          if (isOrganizeMode) {
+            toggleOrganizeSelection(stack.id);
+            return;
+          }
+
+          if (stack.versions.length >= 2) {
+            openVersionComparisonSheet(stack.id);
+          } else {
+            const cover = getStackCoverVersion(stack);
+            toggleGalleryPhotoSelection(cover.src);
+          }
+        };
+      });
+    }
+
+    function toggleGalleryPhotoSelection(photoSrc) {
+      const idx = pendingGallerySelection.indexOf(photoSrc);
+      if (idx !== -1) {
+        pendingGallerySelection.splice(idx, 1);
+      } else {
+        if (pendingGallerySelection.length >= 6) {
+          return;
+        }
+        pendingGallerySelection.push(photoSrc);
+      }
+      updateGallerySelectionUI();
+    }
+
+    function updateGallerySelectionUI() {
+      const grid = document.getElementById('lineupGalleryGrid');
+      if (grid) {
+        grid.querySelectorAll('.lineup-photo-thumb:not(.is-upload)').forEach(thumb => {
+          const stackId = thumb.getAttribute('data-stack-id');
+          const stack = galleryStacks.find(s => s.id === stackId);
+          if (!stack) return;
+
+          const selectedVer = stack.versions.find(v => pendingGallerySelection.includes(v.src));
+          const badgeEl = thumb.querySelector('.lineup-badge-number');
+
+          if (selectedVer) {
+            const selIdx = pendingGallerySelection.indexOf(selectedVer.src);
+            thumb.classList.add('is-selected');
+            if (badgeEl) badgeEl.textContent = selIdx + 1;
+          } else {
+            thumb.classList.remove('is-selected');
+            if (badgeEl) badgeEl.textContent = '';
+          }
+        });
+      }
+
+      const counter = document.getElementById('lineupSelectCounter');
+      if (counter) {
+        counter.textContent = `${pendingGallerySelection.length} of 6 selected`;
+      }
+
+      const continueBtn = document.getElementById('lineupContinueBtn');
+      if (continueBtn) {
+        continueBtn.disabled = pendingGallerySelection.length !== 6;
+      }
+
+      const nextBtn = document.getElementById('lineupGalleryNextBtn');
+      if (nextBtn) {
+        nextBtn.disabled = pendingGallerySelection.length !== 6;
+      }
+    }
+
+    // ─── Version Comparison Sheet Controller ──────────────────────────────────
+    function openVersionComparisonSheet(stackId, initialVersionIndex = 0) {
+      const stack = galleryStacks.find(s => s.id === stackId);
+      if (!stack) return;
+
+      activeSheetStackId = stackId;
+
+      // If a version of this stack is currently selected in lineup, focus on that version
+      const selectedVerIdx = stack.versions.findIndex(v => pendingGallerySelection.includes(v.src));
+      if (selectedVerIdx !== -1) {
+        activeSheetVersionIndex = selectedVerIdx;
+      } else {
+        const coverIdx = stack.versions.findIndex(v => v.id === stack.coverVersionId);
+        activeSheetVersionIndex = coverIdx !== -1 ? coverIdx : Math.max(0, Math.min(initialVersionIndex, stack.versions.length - 1));
+      }
+
+      renderVersionSheet();
+
+      const sheet = document.getElementById('versionComparisonSheet');
+      if (sheet) {
+        sheet.classList.add('active');
+      }
+    }
+
+    function closeVersionComparisonSheet() {
+      const sheet = document.getElementById('versionComparisonSheet');
+      if (sheet) {
+        sheet.classList.remove('active');
+      }
+      activeSheetStackId = null;
+      renderGalleryGrid();
+      updateGallerySelectionUI();
+    }
+
+    function renderVersionSheet() {
+      const stack = galleryStacks.find(s => s.id === activeSheetStackId);
+      if (!stack || !stack.versions.length) {
+        closeVersionComparisonSheet();
+        return;
+      }
+
+      if (activeSheetVersionIndex >= stack.versions.length) {
+        activeSheetVersionIndex = Math.max(0, stack.versions.length - 1);
+      }
+
+      const currentVersion = stack.versions[activeSheetVersionIndex];
+      const isCover = currentVersion.id === stack.coverVersionId;
+
+      const counterEl = document.getElementById('versionSheetCounter');
+      if (counterEl) {
+        counterEl.textContent = `${activeSheetVersionIndex + 1} of ${stack.versions.length}`;
+      }
+
+      const heroImg = document.getElementById('versionHeroImg');
+      if (heroImg) {
+        heroImg.src = currentVersion.src;
+      }
+
+      const coverTag = document.getElementById('versionHeroCoverTag');
+      if (coverTag) {
+        coverTag.style.display = isCover ? 'block' : 'none';
+      }
+
+      const labelText = document.getElementById('versionLabelText');
+      const labelInput = document.getElementById('versionLabelInput');
+      const labelPill = document.getElementById('versionLabelPill');
+      const displayLabel = currentVersion.label || `Version ${activeSheetVersionIndex + 1}`;
+      if (labelText) labelText.textContent = displayLabel;
+      if (labelInput) {
+        labelInput.value = displayLabel;
+        labelInput.style.display = 'none';
+      }
+      if (labelPill) labelPill.style.display = 'inline-flex';
+
+      // Scrubber track
+      const track = document.getElementById('versionScrubberTrack');
+      if (track) {
+        let scrubberHtml = `
+          <div class="version-scrubber-thumb is-add" id="versionScrubberAddTile" role="button" tabindex="0" title="Upload new version">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span>+ Add</span>
+          </div>
+        `;
+
+        stack.versions.forEach((ver, idx) => {
+          const isActive = idx === activeSheetVersionIndex;
+          scrubberHtml += `
+            <div class="version-scrubber-thumb ${isActive ? 'active' : ''}" data-version-index="${idx}" role="button" tabindex="0">
+              <img src="${ver.src}" alt="Version ${idx + 1}" loading="lazy">
+            </div>
+          `;
+        });
+
+        track.innerHTML = scrubberHtml;
+
+        const addTile = document.getElementById('versionScrubberAddTile');
+        const variantFileInput = document.getElementById('versionVariantFileInput');
+        if (addTile && variantFileInput) {
+          addTile.onclick = () => variantFileInput.click();
+        }
+
+        track.querySelectorAll('.version-scrubber-thumb:not(.is-add)').forEach(thumb => {
+          thumb.onclick = () => {
+            const idx = parseInt(thumb.getAttribute('data-version-index'), 10);
+            if (!isNaN(idx) && idx !== activeSheetVersionIndex) {
+              activeSheetVersionIndex = idx;
+              renderVersionSheet();
+            }
+          };
+        });
+      }
+
+      // Action Bar Buttons
+      const setCoverBtn = document.getElementById('versionSetCoverBtn');
+      if (setCoverBtn) {
+        setCoverBtn.disabled = isCover;
+      }
+
+      const detachBtn = document.getElementById('versionDetachBtn');
+      if (detachBtn) {
+        detachBtn.disabled = stack.versions.length <= 1;
+      }
+
+      const deleteBtn = document.getElementById('versionDeleteBtn');
+      if (deleteBtn) {
+        deleteBtn.disabled = stack.versions.length <= 1;
+      }
+
+      // Lineup Selection Button
+      const selectBtn = document.getElementById('versionSelectForLineupBtn');
+      if (selectBtn) {
+        const stackSelectedVer = stack.versions.find(v => pendingGallerySelection.includes(v.src));
+        if (stackSelectedVer) {
+          const slotNum = pendingGallerySelection.indexOf(stackSelectedVer.src) + 1;
+          if (stackSelectedVer.id === currentVersion.id) {
+            selectBtn.textContent = `Remove from Lineup (Slot #${slotNum})`;
+            selectBtn.classList.add('is-remove-action');
+            selectBtn.disabled = false;
+          } else {
+            selectBtn.textContent = `Use This Version in Slot #${slotNum}`;
+            selectBtn.classList.remove('is-remove-action');
+            selectBtn.disabled = false;
+          }
+        } else {
+          selectBtn.textContent = 'Select for Lineup';
+          selectBtn.classList.remove('is-remove-action');
+          selectBtn.disabled = pendingGallerySelection.length >= 6;
+        }
+      }
+    }
+
+    function setStackCoverVersion() {
+      const stack = galleryStacks.find(s => s.id === activeSheetStackId);
+      if (!stack) return;
+      const currentVersion = stack.versions[activeSheetVersionIndex];
+      if (!currentVersion) return;
+
+      stack.coverVersionId = currentVersion.id;
+      saveGalleryStacks(true);
+      renderVersionSheet();
+      renderGalleryGrid();
+    }
+
+    function detachVersionFromStack() {
+      const stack = galleryStacks.find(s => s.id === activeSheetStackId);
+      if (!stack || stack.versions.length <= 1) return;
+
+      const detachedVersion = stack.versions.splice(activeSheetVersionIndex, 1)[0];
+      if (stack.coverVersionId === detachedVersion.id) {
+        stack.coverVersionId = stack.versions[0].id;
+      }
+
+      const newStack = {
+        id: 'stack_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        coverVersionId: detachedVersion.id,
+        versions: [detachedVersion],
+        createdAt: Date.now()
+      };
+      galleryStacks.unshift(newStack);
+
+      saveGalleryStacks(true);
+
+      if (activeSheetVersionIndex >= stack.versions.length) {
+        activeSheetVersionIndex = Math.max(0, stack.versions.length - 1);
+      }
+      renderVersionSheet();
+      renderGalleryGrid();
+      updateGallerySelectionUI();
+    }
+
+    function deleteVersionFromStack() {
+      const stack = galleryStacks.find(s => s.id === activeSheetStackId);
+      if (!stack || stack.versions.length <= 1) return;
+
+      if (!confirm('Are you sure you want to delete this version?')) return;
+
+      const deletedVersion = stack.versions.splice(activeSheetVersionIndex, 1)[0];
+
+      // If the deleted version was in pending lineup, replace with new cover version
+      const selIdx = pendingGallerySelection.indexOf(deletedVersion.src);
+      if (selIdx !== -1) {
+        pendingGallerySelection[selIdx] = stack.versions[0].src;
+      }
+
+      if (stack.coverVersionId === deletedVersion.id) {
+        stack.coverVersionId = stack.versions[0].id;
+      }
+
+      saveGalleryStacks(true);
+
+      if (activeSheetVersionIndex >= stack.versions.length) {
+        activeSheetVersionIndex = Math.max(0, stack.versions.length - 1);
+      }
+      renderVersionSheet();
+      renderGalleryGrid();
+      updateGallerySelectionUI();
+    }
+
+    function toggleLineupSelectionFromSheet() {
+      const stack = galleryStacks.find(s => s.id === activeSheetStackId);
+      if (!stack) return;
+      const currentVersion = stack.versions[activeSheetVersionIndex];
+      if (!currentVersion) return;
+
+      const stackSelectedVer = stack.versions.find(v => pendingGallerySelection.includes(v.src));
+      if (stackSelectedVer) {
+        const slotIdx = pendingGallerySelection.indexOf(stackSelectedVer.src);
+        if (stackSelectedVer.id === currentVersion.id) {
+          // Deselect
+          pendingGallerySelection.splice(slotIdx, 1);
+        } else {
+          // Swap version in place
+          pendingGallerySelection[slotIdx] = currentVersion.src;
+        }
+      } else {
+        // Add to lineup
+        if (pendingGallerySelection.length < 6) {
+          pendingGallerySelection.push(currentVersion.src);
+        }
+      }
+
+      updateGallerySelectionUI();
+      renderVersionSheet();
+      renderGalleryGrid();
+    }
+
+    function handleVariantUpload(file) {
+      if (!file || !file.type.startsWith('image/')) return;
+      const stack = galleryStacks.find(s => s.id === activeSheetStackId);
+      if (!stack) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1200;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          const newVId = 'v_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+
+          stack.versions.push({
+            id: newVId,
+            src: compressedDataUrl,
+            label: `Version ${stack.versions.length + 1}`,
+            createdAt: Date.now()
+          });
+
+          activeSheetVersionIndex = stack.versions.length - 1;
+          saveGalleryStacks(true);
+          renderVersionSheet();
+          renderGalleryGrid();
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function openLineupGalleryModal(retainExistingSelection = false) {
+      if (isOrganizeMode) {
+        toggleOrganizeMode(false);
+      }
+
+      if (retainExistingSelection && activeLineupSlots && activeLineupSlots.length === 6) {
+        pendingGallerySelection = [...activeLineupSlots];
+      } else {
+        pendingGallerySelection = [];
+      }
+
+      loadAndMigrateGalleryStacks();
+      renderGalleryGrid();
+      updateGallerySelectionUI();
+
+      const modal = document.getElementById('lineupGalleryModal');
+      if (modal) {
+        modal.classList.add('active');
+        isGalleryModalOpen = true;
+      }
+    }
+
+    function closeLineupGalleryModal() {
+      closeVersionComparisonSheet();
+      if (isOrganizeMode) {
+        toggleOrganizeMode(false);
+      }
+
+      const modal = document.getElementById('lineupGalleryModal');
+      if (modal) {
+        modal.classList.remove('active');
+        isGalleryModalOpen = false;
+      }
+    }
+
+    function openLineupSandbox() {
+      const view = document.getElementById('lineupSandboxView');
+      if (!view) return;
+      view.classList.add('active');
+      isLineupSandboxOpen = true;
+      setLineupMode(currentLineupMode);
+      renderLineupGrid();
+      renderLineupFeed();
+    }
+
+    function closeLineupSandbox() {
+      const view = document.getElementById('lineupSandboxView');
+      if (!view) return;
+      view.classList.remove('active');
+      isLineupSandboxOpen = false;
+    }
+
+    function setLineupMode(mode) {
+      currentLineupMode = mode;
+      const gridBtn = document.getElementById('lineupModeGridBtn');
+      const feedBtn = document.getElementById('lineupModeFeedBtn');
+      const gridView = document.getElementById('lineupGridView');
+      const feedView = document.getElementById('lineupFeedView');
+
+      if (mode === 'grid') {
+        if (gridBtn) { gridBtn.classList.add('active'); gridBtn.setAttribute('aria-selected', 'true'); }
+        if (feedBtn) { feedBtn.classList.remove('active'); feedBtn.setAttribute('aria-selected', 'false'); }
+        if (gridView) gridView.style.display = 'block';
+        if (feedView) feedView.style.display = 'none';
+      } else {
+        if (gridBtn) { gridBtn.classList.remove('active'); gridBtn.setAttribute('aria-selected', 'false'); }
+        if (feedBtn) { feedBtn.classList.add('active'); feedBtn.setAttribute('aria-selected', 'true'); }
+        if (gridView) gridView.style.display = 'none';
+        if (feedView) feedView.style.display = 'flex';
+      }
+    }
+
+    function renderLineupGrid() {
+      const grid = document.getElementById('lineupSlotsGrid');
+      if (!grid) return;
+
+      grid.innerHTML = activeLineupSlots.map((src, idx) => {
+        const isPrimary = idx === 0;
+        return `
+          <div class="lineup-slot-card" data-slot-index="${idx}">
+            <div class="lineup-slot-photo-wrapper">
+              <img src="${src}" alt="Lineup Photo ${idx + 1}" class="lineup-slot-photo">
+              <span class="lineup-slot-badge">#${idx + 1}</span>
+              ${isPrimary ? '<span class="lineup-primary-tag">Primary</span>' : ''}
+            </div>
+            <div class="lineup-slot-controls">
+              <button class="lineup-reorder-btn lineup-move-prev" data-index="${idx}" ${idx === 0 ? 'disabled' : ''} aria-label="Move Earlier" title="Move earlier in lineup">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+              </button>
+              <span class="lineup-slot-index-label">Slot ${idx + 1}</span>
+              <button class="lineup-reorder-btn lineup-move-next" data-index="${idx}" ${idx === 5 ? 'disabled' : ''} aria-label="Move Later" title="Move later in lineup">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      grid.querySelectorAll('.lineup-move-prev').forEach(btn => {
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          const idx = parseInt(btn.getAttribute('data-index'), 10);
+          if (idx > 0) {
+            swapLineupSlots(idx, idx - 1);
+          }
+        };
+      });
+
+      grid.querySelectorAll('.lineup-move-next').forEach(btn => {
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          const idx = parseInt(btn.getAttribute('data-index'), 10);
+          if (idx < 5) {
+            swapLineupSlots(idx, idx + 1);
+          }
+        };
+      });
+    }
+
+    function renderLineupFeed() {
+      const feed = document.getElementById('lineupFeedCards');
+      if (!feed) return;
+
+      feed.innerHTML = activeLineupSlots.map((src, idx) => {
+        const isPrimary = idx === 0;
+        return `
+          <div class="lineup-feed-card">
+            <img src="${src}" alt="Profile Photo ${idx + 1}" class="lineup-feed-card-photo" loading="lazy">
+            <span class="lineup-feed-badge">${idx + 1} / 6</span>
+            ${isPrimary ? '<span class="lineup-feed-primary-label">Primary Photo</span>' : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function swapLineupSlots(idxA, idxB) {
+      if (idxA < 0 || idxA >= 6 || idxB < 0 || idxB >= 6) return;
+      const temp = activeLineupSlots[idxA];
+      activeLineupSlots[idxA] = activeLineupSlots[idxB];
+      activeLineupSlots[idxB] = temp;
+
+      renderLineupGrid();
+      renderLineupFeed();
+      saveLineupToFirestoreAndLocal(true);
+    }
+
+    function handlePhotoUpload(file) {
+      if (!file || !file.type.startsWith('image/')) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1200;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+          const vId = 'v_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+          const newStack = {
+            id: 'stack_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            coverVersionId: vId,
+            versions: [{
+              id: vId,
+              src: compressedDataUrl,
+              label: 'Original',
+              createdAt: Date.now()
+            }],
+            createdAt: Date.now()
+          };
+
+          galleryStacks.unshift(newStack);
+
+          if (pendingGallerySelection.length < 6) {
+            pendingGallerySelection.push(compressedDataUrl);
+          }
+
+          saveGalleryStacks(true);
+          renderGalleryGrid();
+          updateGallerySelectionUI();
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function saveLineupToFirestoreAndLocal(syncToFirestore = true) {
+      try {
+        localStorage.setItem('hinge_profile_lineup', JSON.stringify(activeLineupSlots));
+      } catch (err) {
+        console.warn('[Lineup] LocalStorage save warning:', err);
+      }
+
+      if (syncToFirestore && typeof db !== 'undefined' && db) {
+        try {
+          const compactStacks = galleryStacks.slice(0, 12).map(s => ({
+            id: s.id,
+            coverVersionId: s.coverVersionId,
+            versions: s.versions.slice(0, 5).map(v => ({
+              id: v.id,
+              src: v.src,
+              label: v.label || '',
+              createdAt: v.createdAt || Date.now()
+            })),
+            createdAt: s.createdAt || Date.now()
+          }));
+
+          await db.collection('settings').doc('profile_lineup').set({
+            slots: activeLineupSlots,
+            galleryStacks: compactStacks,
+            customImages: customGalleryPhotos.slice(0, 8),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: typeof currentRole !== 'undefined' ? currentRole : 'client'
+          }, { merge: true });
+        } catch (err) {
+          console.warn('[Lineup] Firestore save warning:', err);
+        }
+      }
+    }
+
+    function proceedToLineupFromGallery() {
+      if (pendingGallerySelection.length === 6) {
+        activeLineupSlots = [...pendingGallerySelection];
+        saveLineupToFirestoreAndLocal(true);
+        closeLineupGalleryModal();
+        openLineupSandbox();
+      }
+    }
+
+    function initLineupBuilder() {
+      loadAndMigrateGalleryStacks();
+
+      const openBtn = document.getElementById('openLineupBuilderBtn');
+      if (openBtn) {
+        openBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openLineupGalleryModal(false);
+        });
+      }
+
+      const cancelBtn = document.getElementById('lineupGalleryCancelBtn');
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+          if (isOrganizeMode) {
+            toggleOrganizeMode(false);
+          } else {
+            closeLineupGalleryModal();
+          }
+        });
+      }
+
+      const organizeBtn = document.getElementById('lineupGalleryOrganizeBtn');
+      if (organizeBtn) {
+        organizeBtn.addEventListener('click', () => {
+          toggleOrganizeMode(true);
+        });
+      }
+
+      const mergeBtn = document.getElementById('lineupGalleryMergeBtn');
+      if (mergeBtn) {
+        mergeBtn.addEventListener('click', mergeSelectedStacks);
+      }
+
+      const nextBtn = document.getElementById('lineupGalleryNextBtn');
+      if (nextBtn) {
+        nextBtn.addEventListener('click', proceedToLineupFromGallery);
+      }
+
+      const modal = document.getElementById('lineupGalleryModal');
+      if (modal) {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) closeLineupGalleryModal();
+        });
+      }
+
+      const fileInput = document.getElementById('lineupPhotoFileInput');
+      if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+          if (e.target.files && e.target.files[0]) {
+            handlePhotoUpload(e.target.files[0]);
+            fileInput.value = '';
+          }
+        });
+      }
+
+      const continueBtn = document.getElementById('lineupContinueBtn');
+      if (continueBtn) {
+        continueBtn.addEventListener('click', proceedToLineupFromGallery);
+      }
+
+      const backBtn = document.getElementById('lineupBackBtn');
+      if (backBtn) {
+        backBtn.addEventListener('click', closeLineupSandbox);
+      }
+
+      const editPhotosBtn = document.getElementById('lineupEditPhotosBtn');
+      if (editPhotosBtn) {
+        editPhotosBtn.addEventListener('click', () => {
+          openLineupGalleryModal(true);
+        });
+      }
+
+      const gridBtn = document.getElementById('lineupModeGridBtn');
+      if (gridBtn) {
+        gridBtn.addEventListener('click', () => setLineupMode('grid'));
+      }
+
+      const feedBtn = document.getElementById('lineupModeFeedBtn');
+      if (feedBtn) {
+        feedBtn.addEventListener('click', () => setLineupMode('feed'));
+      }
+
+      // Version Comparison Sheet Event Listeners
+      const sheetCloseBtn = document.getElementById('versionSheetCloseBtn');
+      if (sheetCloseBtn) {
+        sheetCloseBtn.addEventListener('click', closeVersionComparisonSheet);
+      }
+
+      const sheetDoneBtn = document.getElementById('versionSheetDoneBtn');
+      if (sheetDoneBtn) {
+        sheetDoneBtn.addEventListener('click', closeVersionComparisonSheet);
+      }
+
+      const sheetBackdrop = document.getElementById('versionSheetBackdrop');
+      if (sheetBackdrop) {
+        sheetBackdrop.addEventListener('click', closeVersionComparisonSheet);
+      }
+
+      const setCoverBtn = document.getElementById('versionSetCoverBtn');
+      if (setCoverBtn) {
+        setCoverBtn.addEventListener('click', setStackCoverVersion);
+      }
+
+      const detachBtn = document.getElementById('versionDetachBtn');
+      if (detachBtn) {
+        detachBtn.addEventListener('click', detachVersionFromStack);
+      }
+
+      const deleteBtn = document.getElementById('versionDeleteBtn');
+      if (deleteBtn) {
+        deleteBtn.addEventListener('click', deleteVersionFromStack);
+      }
+
+      const selectForLineupBtn = document.getElementById('versionSelectForLineupBtn');
+      if (selectForLineupBtn) {
+        selectForLineupBtn.addEventListener('click', toggleLineupSelectionFromSheet);
+      }
+
+      const variantFileInput = document.getElementById('versionVariantFileInput');
+      if (variantFileInput) {
+        variantFileInput.addEventListener('change', (e) => {
+          if (e.target.files && e.target.files[0]) {
+            handleVariantUpload(e.target.files[0]);
+            variantFileInput.value = '';
+          }
+        });
+      }
+
+      // Inline Label Editing
+      const labelPill = document.getElementById('versionLabelPill');
+      const labelInput = document.getElementById('versionLabelInput');
+      if (labelPill && labelInput) {
+        labelPill.addEventListener('click', () => {
+          labelPill.style.display = 'none';
+          labelInput.style.display = 'inline-block';
+          labelInput.focus();
+          labelInput.select();
+        });
+
+        const finishLabelEdit = () => {
+          const stack = galleryStacks.find(s => s.id === activeSheetStackId);
+          if (stack && stack.versions[activeSheetVersionIndex]) {
+            const val = labelInput.value.trim();
+            if (val) {
+              stack.versions[activeSheetVersionIndex].label = val;
+              saveGalleryStacks(true);
+            }
+          }
+          labelInput.style.display = 'none';
+          labelPill.style.display = 'inline-flex';
+          renderVersionSheet();
+        };
+
+        labelInput.addEventListener('blur', finishLabelEdit);
+        labelInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            labelInput.blur();
+          } else if (e.key === 'Escape') {
+            labelInput.style.display = 'none';
+            labelPill.style.display = 'inline-flex';
+          }
+        });
+      }
+
+      // Firestore Real-time Sync
+      if (typeof db !== 'undefined' && db) {
+        db.collection('settings').doc('profile_lineup').onSnapshot((doc) => {
+          if (doc.exists) {
+            const data = doc.data();
+            if (data && Array.isArray(data.slots) && data.slots.length === 6) {
+              const hasChanged = JSON.stringify(data.slots) !== JSON.stringify(activeLineupSlots);
+              if (hasChanged) {
+                activeLineupSlots = data.slots;
+                try {
+                  localStorage.setItem('hinge_profile_lineup', JSON.stringify(activeLineupSlots));
+                } catch (e) {}
+
+                if (isLineupSandboxOpen) {
+                  renderLineupGrid();
+                  renderLineupFeed();
+                }
+              }
+            }
+
+            if (data && Array.isArray(data.galleryStacks) && data.galleryStacks.length > 0) {
+              const currentJson = JSON.stringify(galleryStacks);
+              const newJson = JSON.stringify(data.galleryStacks);
+              if (currentJson !== newJson) {
+                galleryStacks = data.galleryStacks;
+                try {
+                  localStorage.setItem('hinge_gallery_stacks', JSON.stringify(galleryStacks));
+                } catch (e) {}
+                if (isGalleryModalOpen) {
+                  renderGalleryGrid();
+                  updateGallerySelectionUI();
+                  if (activeSheetStackId) {
+                    renderVersionSheet();
+                  }
+                }
+              }
+            } else if (data && Array.isArray(data.customImages) && data.customImages.length > 0) {
+              let updated = false;
+              data.customImages.forEach(img => {
+                if (!customGalleryPhotos.includes(img)) {
+                  customGalleryPhotos.unshift(img);
+                  const vId = 'v_' + Date.now();
+                  galleryStacks.unshift({
+                    id: 'stack_' + Date.now(),
+                    coverVersionId: vId,
+                    versions: [{ id: vId, src: img, label: 'Original', createdAt: Date.now() }],
+                    createdAt: Date.now()
+                  });
+                  updated = true;
+                }
+              });
+              if (updated) {
+                saveGalleryStacks(false);
+                if (isGalleryModalOpen) {
+                  renderGalleryGrid();
+                  updateGallerySelectionUI();
+                }
+              }
+            }
+          }
+        }, (err) => {
+          console.warn('[Lineup] Firestore listener warning:', err);
+        });
+      }
+    }
+
+    initLineupBuilder();
 
     // ─── Real-time Coach Lock / Splash Screen Sync ───────────────────────────────
     function initCoachLockSync() {
