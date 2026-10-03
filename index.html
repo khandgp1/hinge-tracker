@@ -4529,6 +4529,7 @@
     let organizeSelectedStackIds = new Set();
     let activeSheetStackId = null;
     let activeSheetVersionIndex = 0;
+    let activeSheetHeroBlob = null;
 
     let pendingGallerySelection = [];
     let currentLineupMode = 'grid'; // 'grid' | 'feed'
@@ -4955,6 +4956,23 @@
         heroImg.src = currentVersion.src;
       }
 
+      // Pre-cache blob for synchronous mobile sharing & fast download
+      activeSheetHeroBlob = null;
+      if (currentVersion.src.startsWith('data:')) {
+        activeSheetHeroBlob = dataUrlToBlob(currentVersion.src);
+      } else {
+        const fetchStackId = stack.id;
+        const fetchVerId = currentVersion.id;
+        fetch(currentVersion.src)
+          .then(res => res.ok ? res.blob() : null)
+          .then(b => {
+            if (activeSheetStackId === fetchStackId && stack.versions[activeSheetVersionIndex] && stack.versions[activeSheetVersionIndex].id === fetchVerId) {
+              activeSheetHeroBlob = b;
+            }
+          })
+          .catch(() => {});
+      }
+
       const coverTag = document.getElementById('versionHeroCoverTag');
       if (coverTag) {
         coverTag.style.display = isCover ? 'block' : 'none';
@@ -5063,47 +5081,23 @@
       renderGalleryGrid();
     }
 
-    function triggerImageDownload(src, filename) {
-      if (!src) return;
-
-      if (src.startsWith('data:')) {
-        const a = document.createElement('a');
-        a.href = src;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        return;
+    function dataUrlToBlob(dataUrl) {
+      try {
+        const parts = dataUrl.split(';base64,');
+        const mime = (parts[0].replace('data:', '') || 'image/jpeg').split(';')[0];
+        const binary = atob(parts[1]);
+        const len = binary.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return new Blob([bytes], { type: mime });
+      } catch (e) {
+        return null;
       }
-
-      fetch(src)
-        .then(res => {
-          if (!res.ok) throw new Error('Network response not ok');
-          return res.blob();
-        })
-        .then(blob => {
-          const blobUrl = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = blobUrl;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
-        })
-        .catch(err => {
-          console.warn('[Lineup] Download blob fallback:', err);
-          const a = document.createElement('a');
-          a.href = src;
-          a.download = filename;
-          a.target = '_blank';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-        });
     }
 
-    function downloadActiveVersionPhoto() {
+    async function downloadActiveVersionPhoto() {
       const stack = galleryStacks.find(s => s.id === activeSheetStackId);
       if (!stack) return;
       const currentVersion = stack.versions[activeSheetVersionIndex];
@@ -5114,8 +5108,76 @@
         ext = 'png';
       }
       const filename = `photo-version-${activeSheetVersionIndex + 1}.${ext}`;
-      triggerImageDownload(currentVersion.src, filename);
+      const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
 
+      // 1. Get Blob (preferring pre-cached blob for immediate sync execution on iOS)
+      let blob = activeSheetHeroBlob;
+      if (!blob) {
+        if (currentVersion.src.startsWith('data:')) {
+          blob = dataUrlToBlob(currentVersion.src);
+        } else {
+          try {
+            const res = await fetch(currentVersion.src);
+            if (res.ok) blob = await res.blob();
+          } catch (fetchErr) {
+            console.warn('[Lineup] Fetch blob failed:', fetchErr);
+          }
+        }
+      }
+
+      // 2. If blob is ready, attempt native Web Share API (iOS / Mobile)
+      if (blob) {
+        try {
+          const file = new File([blob], filename, { type: mimeType });
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+              await navigator.share({
+                files: [file],
+                title: filename
+              });
+              showDownloadSuccessFeedback();
+              return;
+            } catch (shareErr) {
+              if (shareErr.name === 'AbortError') {
+                // User dismissed native iOS share sheet
+                return;
+              }
+              console.warn('[Lineup] Web Share error, falling back to file download:', shareErr);
+            }
+          }
+        } catch (fileErr) {
+          console.warn('[Lineup] File constructor or canShare check error:', fileErr);
+        }
+
+        // 3. Desktop / Standard Download fallback via Blob URL
+        try {
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+          showDownloadSuccessFeedback();
+          return;
+        } catch (dlErr) {
+          console.warn('[Lineup] Object URL download failed:', dlErr);
+        }
+      }
+
+      // 4. Direct link fallback if blob conversion failed
+      const a = document.createElement('a');
+      a.href = currentVersion.src;
+      a.download = filename;
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showDownloadSuccessFeedback();
+    }
+
+    function showDownloadSuccessFeedback() {
       const downloadBtn = document.getElementById('versionDownloadBtn');
       if (downloadBtn) {
         const originalHtml = `
@@ -5131,7 +5193,7 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
-          <span>Downloaded ✓</span>
+          <span>Downloaded</span>
         `;
         setTimeout(() => {
           downloadBtn.classList.remove('is-success');
