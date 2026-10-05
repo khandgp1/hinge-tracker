@@ -529,6 +529,8 @@
       border: 2.5px solid transparent;
       transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
       user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
     }
 
     .lineup-photo-thumb:active {
@@ -545,6 +547,11 @@
       height: 100%;
       object-fit: cover;
       display: block;
+      pointer-events: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-user-drag: none;
     }
 
     .lineup-badge-number {
@@ -581,19 +588,48 @@
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      background: rgba(0, 0, 0, 0.65);
+      background: rgba(0, 0, 0, 0.68);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       color: #ffffff;
       font-size: 11px;
       font-weight: 700;
-      padding: 3px 7px;
+      padding: 4px 8px;
       border-radius: 999px;
-      pointer-events: none;
+      pointer-events: auto;
+      cursor: pointer;
       letter-spacing: -0.01em;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-      border: 0.5px solid rgba(255, 255, 255, 0.25);
-      z-index: 2;
+      border: 0.5px solid rgba(255, 255, 255, 0.3);
+      z-index: 5;
+      transition: background 0.15s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.15s ease, box-shadow 0.15s ease;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .lineup-version-pill:hover {
+      background: rgba(0, 0, 0, 0.88);
+      border-color: rgba(255, 255, 255, 0.55);
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+    }
+
+    .lineup-version-pill:active {
+      transform: scale(0.90);
+      background: rgba(0, 0, 0, 0.95);
+    }
+
+    .lineup-version-pill.is-single {
+      background: rgba(0, 0, 0, 0.50);
+      padding: 4px 7px;
+      border-color: rgba(255, 255, 255, 0.22);
+      opacity: 0.88;
+    }
+
+    .lineup-version-pill.is-single:hover {
+      opacity: 1;
+      background: rgba(0, 0, 0, 0.85);
+      border-color: rgba(255, 255, 255, 0.55);
     }
 
     .lineup-organize-checkbox {
@@ -4753,14 +4789,22 @@
         const hasMultiple = stack.versions.length >= 2;
 
         const versionPillHtml = hasMultiple ? `
-          <div class="lineup-version-pill" title="${stack.versions.length} versions in this stack">
+          <div class="lineup-version-pill" data-stack-id="${stack.id}" title="${stack.versions.length} versions in this stack (tap to manage)">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
               <rect x="3" y="3" width="13" height="13" rx="2"></rect>
               <polyline points="9 21 21 21 21 9"></polyline>
             </svg>
             <span>${stack.versions.length}</span>
           </div>
-        ` : '';
+        ` : `
+          <div class="lineup-version-pill is-single" data-stack-id="${stack.id}" title="View & add photo versions">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="3" y="3" width="13" height="13" rx="2"></rect>
+              <polyline points="9 21 21 21 21 9"></polyline>
+            </svg>
+            <span>+</span>
+          </div>
+        `;
 
         const checkboxHtml = isOrganizeMode ? `
           <div class="lineup-organize-checkbox">
@@ -4778,7 +4822,7 @@
                data-photo-src="${cover.src}" 
                role="button" 
                tabindex="0">
-            <img src="${cover.src}" alt="Candidate Photo" loading="lazy">
+            <img src="${cover.src}" alt="Candidate Photo" loading="lazy" draggable="false">
             <div class="lineup-badge-number">${badgeNum}</div>
             ${versionPillHtml}
             ${checkboxHtml}
@@ -4799,46 +4843,38 @@
         const stack = galleryStacks.find(s => s.id === stackId);
         if (!stack) return;
 
-        let pressTimer = null;
-        let isLongPress = false;
-
-        const startPress = () => {
-          isLongPress = false;
-          pressTimer = setTimeout(() => {
-            isLongPress = true;
-            if (!isOrganizeMode) {
+        // Dedicated Version Pill tap handler
+        const pill = thumb.querySelector('.lineup-version-pill');
+        if (pill) {
+          pill.onclick = (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            if (isOrganizeMode) {
+              toggleOrganizeSelection(stack.id);
+            } else {
               openVersionComparisonSheet(stack.id);
             }
-          }, 500);
-        };
+          };
+        }
 
-        const cancelPress = () => {
-          if (pressTimer) {
-            clearTimeout(pressTimer);
-            pressTimer = null;
+        // Secondary click / two-finger click on desktop: open versions without native browser menu
+        thumb.oncontextmenu = (e) => {
+          e.preventDefault();
+          if (!isOrganizeMode) {
+            openVersionComparisonSheet(stack.id);
           }
         };
 
-        thumb.addEventListener('touchstart', startPress, { passive: true });
-        thumb.addEventListener('touchend', cancelPress, { passive: true });
-        thumb.addEventListener('touchmove', cancelPress, { passive: true });
-        thumb.addEventListener('mousedown', startPress);
-        thumb.addEventListener('mouseup', cancelPress);
-        thumb.addEventListener('mouseleave', cancelPress);
-
+        // Main card tap: toggle lineup selection (or organize selection in Organize Mode)
         thumb.onclick = (e) => {
-          if (isLongPress) {
-            isLongPress = false;
-            return;
-          }
-
           if (isOrganizeMode) {
             toggleOrganizeSelection(stack.id);
             return;
           }
 
-          if (stack.versions.length >= 2) {
-            openVersionComparisonSheet(stack.id);
+          const selectedVer = stack.versions.find(v => pendingGallerySelection.includes(v.src));
+          if (selectedVer) {
+            toggleGalleryPhotoSelection(selectedVer.src);
           } else {
             const cover = getStackCoverVersion(stack);
             toggleGalleryPhotoSelection(cover.src);
