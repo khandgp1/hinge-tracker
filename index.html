@@ -4900,7 +4900,37 @@
       return stack.versions.find(v => v.id === stack.coverVersionId) || stack.versions[0];
     }
 
-    async function saveGalleryStacks(syncToFirestore = true) {
+    async function syncStackToFirestore(stack) {
+      if (!stack || !stack.id || typeof db === 'undefined' || !db) return;
+      try {
+        const compactStack = {
+          id: stack.id,
+          coverVersionId: stack.coverVersionId || (stack.versions[0] ? stack.versions[0].id : ''),
+          versions: (stack.versions || []).slice(0, 8).map(v => ({
+            id: v.id,
+            src: v.src,
+            label: v.label || '',
+            createdAt: v.createdAt || Date.now()
+          })),
+          createdAt: stack.createdAt || Date.now(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        await db.collection('gallery_stacks').doc(stack.id).set(compactStack, { merge: true });
+      } catch (err) {
+        console.warn('[Lineup] Firestore stack sync warning:', err);
+      }
+    }
+
+    async function deleteStackFromFirestore(stackId) {
+      if (!stackId || typeof db === 'undefined' || !db) return;
+      try {
+        await db.collection('gallery_stacks').doc(stackId).delete();
+      } catch (err) {
+        console.warn('[Lineup] Firestore stack delete warning:', err);
+      }
+    }
+
+    async function saveGalleryStacks(syncToFirestore = true, targetStackId = null) {
       try {
         localStorage.setItem('hinge_gallery_stacks', JSON.stringify(galleryStacks));
       } catch (err) {
@@ -4924,6 +4954,12 @@
       } catch (e) {}
 
       if (syncToFirestore) {
+        if (targetStackId) {
+          const target = galleryStacks.find(s => s.id === targetStackId);
+          if (target) syncStackToFirestore(target);
+        } else {
+          galleryStacks.forEach(s => syncStackToFirestore(s));
+        }
         saveLineupToFirestoreAndLocal(true);
       }
     }
@@ -5004,6 +5040,12 @@
       const mergedIdSet = new Set(mergedStacks.map(s => s.id));
       galleryStacks = galleryStacks.filter(s => !mergedIdSet.has(s.id));
 
+      // Remove merged stacks from Firestore
+      mergedStacks.forEach(s => {
+        deleteStackFromFirestore(s.id);
+      });
+      syncStackToFirestore(targetStack);
+
       // Ensure no multiple versions from merged stack remain in lineup
       const allTargetSrcs = targetStack.versions.map(v => v.src);
       let firstFound = false;
@@ -5018,7 +5060,7 @@
         return true;
       });
 
-      saveGalleryStacks(true);
+      saveGalleryStacks(true, targetStack.id);
       toggleOrganizeMode(false);
       updateGallerySelectionUI();
     }
@@ -5374,7 +5416,7 @@
       if (!currentVersion) return;
 
       stack.coverVersionId = currentVersion.id;
-      saveGalleryStacks(true);
+      saveGalleryStacks(true, stack.id);
       renderVersionSheet();
       renderGalleryGrid();
     }
@@ -5517,6 +5559,8 @@
       };
       galleryStacks.unshift(newStack);
 
+      syncStackToFirestore(stack);
+      syncStackToFirestore(newStack);
       saveGalleryStacks(true);
 
       if (activeSheetVersionIndex >= stack.versions.length) {
@@ -5545,7 +5589,12 @@
         stack.coverVersionId = stack.versions[0].id;
       }
 
-      saveGalleryStacks(true);
+      if (stack.versions.length === 0) {
+        deleteStackFromFirestore(stack.id);
+      } else {
+        syncStackToFirestore(stack);
+      }
+      saveGalleryStacks(true, stack.id);
 
       if (activeSheetVersionIndex >= stack.versions.length) {
         activeSheetVersionIndex = Math.max(0, stack.versions.length - 1);
@@ -5592,7 +5641,7 @@
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-          const maxDim = 1200;
+          const maxDim = 960;
           let w = img.width;
           let h = img.height;
           if (w > maxDim || h > maxDim) {
@@ -5611,7 +5660,7 @@
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, w, h);
 
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.80);
           const newVId = 'v_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
 
           stack.versions.push({
@@ -5622,7 +5671,7 @@
           });
 
           activeSheetVersionIndex = stack.versions.length - 1;
-          saveGalleryStacks(true);
+          saveGalleryStacks(true, stack.id);
           renderVersionSheet();
           renderGalleryGrid();
         };
@@ -5816,18 +5865,18 @@
       const cropDim = Math.min(sw, sh);
 
       const canvas = document.createElement('canvas');
-      canvas.width = 1080;
-      canvas.height = 1080;
+      canvas.width = 800;
+      canvas.height = 800;
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(photoCropState.img, sx, sy, cropDim, cropDim, 0, 0, 1080, 1080);
+        ctx.drawImage(photoCropState.img, sx, sy, cropDim, cropDim, 0, 0, 800, 800);
       }
 
       let croppedDataUrl = '';
       try {
-        croppedDataUrl = canvas.toDataURL('image/jpeg', 0.88);
+        croppedDataUrl = canvas.toDataURL('image/jpeg', 0.80);
       } catch (err) {
         console.warn('[Crop] toDataURL fallback failed:', err);
         closePhotoCropModal();
@@ -5843,9 +5892,10 @@
       };
 
       stack.versions.push(newVersion);
+      stack.coverVersionId = newVersion.id;
       activeSheetVersionIndex = stack.versions.length - 1;
 
-      saveGalleryStacks(true);
+      saveGalleryStacks(true, stack.id);
       closePhotoCropModal();
       renderVersionSheet();
       renderGalleryGrid();
@@ -6107,7 +6157,7 @@
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-          const maxDim = 1200;
+          const maxDim = 960;
           let w = img.width;
           let h = img.height;
           if (w > maxDim || h > maxDim) {
@@ -6126,7 +6176,7 @@
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, w, h);
 
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.80);
 
           const vId = 'v_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
           const newStack = {
@@ -6147,7 +6197,7 @@
             pendingGallerySelection.push(compressedDataUrl);
           }
 
-          saveGalleryStacks(true);
+          saveGalleryStacks(true, newStack.id);
           renderGalleryGrid();
           updateGallerySelectionUI();
         };
@@ -6165,22 +6215,9 @@
 
       if (syncToFirestore && typeof db !== 'undefined' && db) {
         try {
-          const compactStacks = galleryStacks.slice(0, 12).map(s => ({
-            id: s.id,
-            coverVersionId: s.coverVersionId,
-            versions: s.versions.slice(0, 5).map(v => ({
-              id: v.id,
-              src: v.src,
-              label: v.label || '',
-              createdAt: v.createdAt || Date.now()
-            })),
-            createdAt: s.createdAt || Date.now()
-          }));
-
           await db.collection('settings').doc('profile_lineup').set({
             slots: activeLineupSlots,
-            galleryStacks: compactStacks,
-            customImages: customGalleryPhotos.slice(0, 8),
+            stackIds: galleryStacks.map(s => s.id),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedBy: typeof currentRole !== 'undefined' ? currentRole : 'client'
           }, { merge: true });
@@ -6367,7 +6404,7 @@
             const val = labelInput.value.trim();
             if (val) {
               stack.versions[activeSheetVersionIndex].label = val;
-              saveGalleryStacks(true);
+              saveGalleryStacks(true, stack.id);
             }
           }
           labelInput.style.display = 'none';
@@ -6388,6 +6425,71 @@
 
       // Firestore Real-time Sync
       if (typeof db !== 'undefined' && db) {
+        // 1. Per-Stack Collection Real-time Sync
+        let isGalleryStacksInit = false;
+        db.collection('gallery_stacks').onSnapshot((snapshot) => {
+          if (snapshot.empty && !isGalleryStacksInit) {
+            isGalleryStacksInit = true;
+            return;
+          }
+          isGalleryStacksInit = true;
+
+          let hasChanges = false;
+          snapshot.docChanges().forEach((change) => {
+            if (change.doc.metadata.hasPendingWrites) return;
+
+            const docData = change.doc.data();
+            if (!docData || !docData.id) return;
+
+            if (change.type === 'removed') {
+              const idx = galleryStacks.findIndex(s => s.id === docData.id);
+              if (idx !== -1) {
+                galleryStacks.splice(idx, 1);
+                hasChanges = true;
+              }
+            } else {
+              const existingIdx = galleryStacks.findIndex(s => s.id === docData.id);
+              if (existingIdx !== -1) {
+                const currentStr = JSON.stringify({
+                  cover: galleryStacks[existingIdx].coverVersionId,
+                  versions: galleryStacks[existingIdx].versions
+                });
+                const incomingStr = JSON.stringify({
+                  cover: docData.coverVersionId,
+                  versions: docData.versions
+                });
+                if (currentStr !== incomingStr) {
+                  galleryStacks[existingIdx] = {
+                    ...galleryStacks[existingIdx],
+                    ...docData
+                  };
+                  hasChanges = true;
+                }
+              } else {
+                galleryStacks.unshift(docData);
+                hasChanges = true;
+              }
+            }
+          });
+
+          if (hasChanges) {
+            try {
+              localStorage.setItem('hinge_gallery_stacks', JSON.stringify(galleryStacks));
+            } catch (e) {}
+
+            if (isGalleryModalOpen) {
+              renderGalleryGrid();
+              updateGallerySelectionUI();
+            }
+            if (activeSheetStackId) {
+              renderVersionSheet();
+            }
+          }
+        }, (err) => {
+          console.warn('[Lineup] Firestore gallery_stacks listener warning:', err);
+        });
+
+        // 2. Profile Lineup Slots Real-time Sync
         db.collection('settings').doc('profile_lineup').onSnapshot((doc) => {
           if (doc.exists) {
             const data = doc.data();
@@ -6406,48 +6508,23 @@
               }
             }
 
-            if (data && Array.isArray(data.galleryStacks) && data.galleryStacks.length > 0) {
-              const currentJson = JSON.stringify(galleryStacks);
-              const newJson = JSON.stringify(data.galleryStacks);
-              if (currentJson !== newJson) {
-                galleryStacks = data.galleryStacks;
-                try {
-                  localStorage.setItem('hinge_gallery_stacks', JSON.stringify(galleryStacks));
-                } catch (e) {}
-                if (isGalleryModalOpen) {
-                  renderGalleryGrid();
-                  updateGallerySelectionUI();
-                  if (activeSheetStackId) {
-                    renderVersionSheet();
-                  }
-                }
-              }
-            } else if (data && Array.isArray(data.customImages) && data.customImages.length > 0) {
-              let updated = false;
-              data.customImages.forEach(img => {
-                if (!customGalleryPhotos.includes(img)) {
-                  customGalleryPhotos.unshift(img);
-                  const vId = 'v_' + Date.now();
-                  galleryStacks.unshift({
-                    id: 'stack_' + Date.now(),
-                    coverVersionId: vId,
-                    versions: [{ id: vId, src: img, label: 'Original', createdAt: Date.now() }],
-                    createdAt: Date.now()
-                  });
-                  updated = true;
-                }
-              });
-              if (updated) {
-                saveGalleryStacks(false);
-                if (isGalleryModalOpen) {
-                  renderGalleryGrid();
-                  updateGallerySelectionUI();
+            // Fallback for legacy database records if gallery_stacks collection is not yet used
+            if (!isGalleryStacksInit && data && Array.isArray(data.galleryStacks) && data.galleryStacks.length > 0 && galleryStacks.length === 0) {
+              galleryStacks = data.galleryStacks;
+              try {
+                localStorage.setItem('hinge_gallery_stacks', JSON.stringify(galleryStacks));
+              } catch (e) {}
+              if (isGalleryModalOpen) {
+                renderGalleryGrid();
+                updateGallerySelectionUI();
+                if (activeSheetStackId) {
+                  renderVersionSheet();
                 }
               }
             }
           }
         }, (err) => {
-          console.warn('[Lineup] Firestore listener warning:', err);
+          console.warn('[Lineup] Firestore profile_lineup listener warning:', err);
         });
       }
     }
